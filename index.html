@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:,"><title>攀巔 — 2D 合作登山</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#111;touch-action:none;font-family:system-ui,"PingFang TC","Noto Sans TC",sans-serif;color:#fff;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,20,35,.82);padding:20px;text-align:center;z-index:5;overflow:auto}
+.hide{display:none!important}
+h1{font-size:46px;margin:0;letter-spacing:6px;text-shadow:0 4px 0 #b4512a}
+.sub{opacity:.8;margin:0 0 6px}
+button{font:inherit;font-size:18px;padding:12px 18px;border:0;border-radius:12px;background:#f2a33a;color:#2a1600;font-weight:700;min-width:200px;touch-action:manipulation}
+button.alt{background:#3d6b8c;color:#fff}
+input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width:200px;text-align:center;-webkit-user-select:text;user-select:text}
+.help{font-size:13px;line-height:1.6;opacity:.85;max-width:340px;text-align:left;background:rgba(255,255,255,.07);padding:10px 14px;border-radius:10px}
+#plist{list-style:none;padding:0;margin:4px 0;min-width:220px}
+#plist li{padding:6px;margin:3px;border-radius:8px;background:rgba(255,255,255,.1)}
+#ctl{position:fixed;left:0;right:0;bottom:0;height:200px;z-index:3;pointer-events:none}
+.b{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;pointer-events:auto;touch-action:none}
+.b.on{background:rgba(255,200,80,.5)}
+#status{min-height:20px;color:#ffd27a;font-size:14px}
+#toast{position:fixed;top:70px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="toast"></div>
+<div id="ctl" class="hide">
+ <div class="b" data-k="left"  style="left:10px;bottom:62px">◀</div>
+ <div class="b" data-k="right" style="left:118px;bottom:62px">▶</div>
+ <div class="b" data-k="up"    style="left:64px;bottom:120px">▲</div>
+ <div class="b" data-k="down"  style="left:64px;bottom:6px">▼</div>
+ <div class="b" data-k="grab"  style="right:96px;bottom:20px;width:76px;height:76px">抓</div>
+ <div class="b" data-k="jump"  style="right:10px;bottom:70px;width:76px;height:76px">跳</div>
+ <div class="b" data-k="help"  style="right:24px;bottom:160px;width:54px;height:54px;font-size:16px">助</div>
+</div>
+<div id="menu" class="ov">
+ <h1>攀巔</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
+ <input id="nick" maxlength="8" placeholder="暱稱">
+ <button id="bSolo">單人遊玩</button>
+ <button id="bHost" class="alt">建立房間</button>
+ <div style="display:flex;gap:6px"><input id="code" maxlength="5" placeholder="房間代碼" style="width:120px;text-transform:uppercase"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
+ <div id="status"></div>
+ <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充（蘑菇有好有壞）。<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點。多人時靠近隊友按「助」可拉隊友一把，或救起倒地隊友。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓、E 助</div>
+</div>
+<div id="room" class="ov hide">
+ <h2 style="margin:0">房間代碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
+ <button id="bCopy" class="alt">複製分享連結</button>
+ <ul id="plist"></ul>
+ <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
+ <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
+ <button id="bLeave" class="alt">離開</button>
+</div>
+<div id="end" class="ov hide">
+ <h1 id="etitle" style="font-size:36px">登頂成功！</h1><p id="einfo"></p>
+ <button id="bAgain">再玩一次</button><button id="bMenu" class="alt">回到主選單</button>
+</div>
+<script>
+"use strict";
+// ---------- setup ----------
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+let DPR=1,CW=0,CH=0;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,3);CW=innerWidth;CH=innerHeight;cv.width=CW*DPR|0;cv.height=CH*DPR|0}
+addEventListener('resize',resize);resize();
+document.addEventListener('touchmove',e=>{if(e.target.tagName!=='INPUT')e.preventDefault()},{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault());
+
+const W=360,BL=1500,NB=4,TOP=-BL*NB;
+const BIOMES=[
+ {n:'海灘',rock:'#cfa86a',edge:'#efd49a',sky:['#7ec8f0','#f7e3b5']},
+ {n:'叢林',rock:'#4f7a3a',edge:'#7fb34f',sky:['#5fae9a','#c9e8b0']},
+ {n:'雪山',rock:'#8b98a8',edge:'#f4f8ff',sky:['#9fb4d6','#e9eef8']},
+ {n:'火山',rock:'#4a3030',edge:'#8a4a32',sky:['#3a1d24','#d0603a']}];
+const biomeAt=y=>Math.max(0,Math.min(NB-1,Math.floor(-y/BL)));
+const COLORS=['#ff6b4a','#4ab3ff','#7de05a','#e07de0'];
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+// ---------- world ----------
+let rects,foods,camps,eaten;
+function genWorld(seed){
+ const R=rng(seed);rects=[];foods=[];camps=[];eaten=new Set();
+ rects.push({x:-60,y:0,w:W+120,h:400});
+ rects.push({x:-60,y:TOP-600,w:60,h:-TOP+1000,side:1},{x:W,y:TOP-600,w:60,h:-TOP+1000,side:1});
+ for(let b=1;b<NB;b++){const y=-b*BL;rects.push({x:70,y,w:220,h:16});camps.push({x:180,y,b})}
+ let fid=0;
+ for(let y=-60;y>TOP+70;y-=50+R()*22){
+  if(camps.some(c=>Math.abs(c.y-y)<45))continue;
+  const n=R()<.55?2:1;
+  for(let i=0;i<n;i++){
+   const w=36+R()*80,x=i?(R()<.5?R()*(W/2-w):W/2+R()*(W/2-w)):R()*(W-w);
+   const r={x,y,w,h:14};rects.push(r);
+   if(R()<.22)foods.push({id:fid++,x:x+w/2,y:y-7,k:R()<.6?'berry':'mush'});
+  }
+  if(R()<.3){const h=80+R()*90;rects.push({x:20+R()*(W-60),y:y-h,w:18,h})}
+ }
+ rects.push({x:110,y:TOP,w:140,h:24,peak:1});
+}
+function hit(x,y,w,h){for(const r of rects)if(x<r.x+r.w&&x+w>r.x&&y<r.y+r.h&&y+h>r.y)return r;return null}
+
+// ---------- state ----------
+const PW=12,PH=18;
+let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
+function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
+const maxS=p=>Math.max(8,100-p.inj-p.hun-p.cold);
+function toast(s){$('toast').textContent=s;toastT=2.5}
+function puff(x,y,c,n,sp=80){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*sp,vy:-Math.random()*sp,l:.6+Math.random()*.4,c})}
+
+// ---------- input ----------
+const K={},prev={};
+const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab',KeyE:'help'};
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=km[e.code];if(k){K[k]=1;e.preventDefault()}});
+addEventListener('keyup',e=>{const k=km[e.code];if(k)K[k]=0});
+document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
+ const on=e=>{e.preventDefault();K[k]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
+ const off=e=>{K[k]=0;b.classList.remove('on')};
+ b.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(t=>b.addEventListener(t,off))});
+const pressed=k=>K[k]&&!prev[k];
+
+// ---------- game flow ----------
+function startGame(s){
+ seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
+ t0=performance.now();elapsed=0;camY=P.y-200;mode='play';
+ for(const id in remotes)Object.assign(remotes[id],{x:P.x,y:P.y,dx:P.x,dy:P.y});
+ ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
+ toast('從海灘出發！目標：山頂');
+}
+function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=net?15:1.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast(net?'倒地了！等待隊友救援…':'倒下了…')}
+function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
+function win(name,time){if(mode!=='play')return;mode='end';$('ctl').classList.add('hide');
+ $('etitle').textContent='登頂成功！';$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
+ $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost)}
+const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
+const esc=s=>String(s).replace(/[<>&"]/g,c=>'&#'+c.charCodeAt(0)+';');
+
+function touchWall(d){return hit(d<0?P.x-2:P.x+PW,P.y+2,2,PH-4)}
+function update(dt){
+ elapsed=(performance.now()-t0)/1000;
+ const b=biomeAt(P.y);
+ // hunger & cold
+ P.hun=Math.min(45,P.hun+dt*.35);
+ const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
+ if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*1.6);else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
+ if(nearCamp&&P.camp!==nearCamp.b){P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
+ if(P.down){P.downT-=dt;P.vx=0;P.vy=Math.min(900,P.vy+1000*dt);moveY(dt);if(P.downT<=0)respawn();return}
+ const ax=(K.right?1:0)-(K.left?1:0);if(ax)P.face=ax;
+ const wl=touchWall(-1),wr=touchWall(1),wall=wl||wr;
+ const MS=maxS(P);
+ if(K.grab&&wall&&P.stam>0){if(!P.cling)P.cling=wl?-1:1}else P.cling=0;
+ if(P.cling){
+  const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.6:1;
+  P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up?30:0);
+  P.stam-=(7+up*13)*slip*dt*(b===2?1.2:1);
+  if(pressed('jump')&&P.stam>4){P.vy=-340;P.vx=-P.cling*170;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
+ }else{
+  P.vx+=(ax*140-P.vx)*Math.min(1,dt*(P.ground?14:5));
+  if(pressed('jump')&&P.ground&&P.stam>3){P.vy=-370;P.stam-=8;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  P.vy=Math.min(900,P.vy+1000*dt);
+ }
+ if(P.ground&&!P.cling)P.stam+=40*dt;
+ P.stam=Math.max(0,Math.min(P.stam,MS));
+ P.x+=P.vx*dt;const rx=hit(P.x,P.y,PW,PH);if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
+ const vy=P.vy;moveY(dt);
+ if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
+ // food
+ for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
+ // lava
+ if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+250;toast('熔岩開始上漲！快爬！')}
+ if(lavaOn&&(!net||isHost))lava-=dt*7;
+ if(P.y+PH>lava+4){down();P.downT=Math.min(P.downT,1.5)}
+ if(P.ground&&P.y+PH<=TOP+1){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});win(myName,t)}
+ if(pressed('help'))tryHelp();
+}
+function moveY(dt){P.y+=P.vy*dt;P.ground=false;const r=hit(P.x,P.y,PW,PH);if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true}else P.y=r.y+r.h;P.vy=0}}
+function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;
+ if(mine){
+  if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
+  else if(Math.random()<.6){P.inj=Math.max(0,P.inj-20);P.hun=Math.max(0,P.hun-10);P.stam=maxS(P);toast('好蘑菇！傷勢恢復、體力全滿');puff(f.x,f.y,'#6f6',10)}
+  else{P.inj=Math.min(80,P.inj+15);P.stam*=.5;toast('毒蘑菇！頭好暈…');puff(f.x,f.y,'#a4f',10)}
+  if(net)send({t:'eat',id});
+ }}
+function tryHelp(){
+ let best=null,bd=50;
+ for(const id in remotes){const r=remotes[id];const d=Math.hypot(r.dx-P.x,r.dy-P.y);if(d<bd){bd=d;best=id}}
+ if(!best){toast('附近沒有隊友');return}
+ const r=remotes[best];
+ if(r.d){send({t:'help',to:best,k:'revive',n:myName});toast(`救起了 ${r.n}！`)}
+ else if(P.stam>=20){P.stam-=20;send({t:'help',to:best,k:'boost',n:myName});toast(`拉了 ${r.n} 一把！`)}
+ else toast('體力不足，無法幫忙');
+}
+function onHelp(d){
+ if(d.k==='revive'&&P.down){P.down=false;P.inj=Math.max(0,P.inj-40);P.stam=30;toast(`${d.n} 救起了你！`)}
+ else if(d.k==='boost'){P.cling=0;P.vy=-430;P.stam=Math.min(maxS(P),P.stam+30);toast(`${d.n} 拉了你一把！`)}
+}
+
+// ---------- render ----------
+function render(dt){
+ const s=CW/W*DPR,vh=CH/(CW/W);
+ const target=P?P.y-vh*.55:0;camY+=(target-camY)*Math.min(1,dt*6);
+ const b=P?biomeAt(P.y):0,B=BIOMES[b];
+ const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,B.sky[0]);g.addColorStop(1,B.sky[1]);
+ ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
+ if(!P)return;
+ // parallax peaks
+ ctx.fillStyle='rgba(0,0,0,.12)';ctx.beginPath();ctx.moveTo(0,cv.height);
+ for(let i=0;i<=8;i++)ctx.lineTo(i*cv.width/8,cv.height*.5+Math.sin(i*1.7+camY*.0005)*cv.height*.15);ctx.lineTo(cv.width,cv.height);ctx.fill();
+ const sx=shake>0?(Math.random()-.5)*6:0;
+ ctx.setTransform(s,0,0,s,sx*DPR,-camY*s);
+ const y0=camY-40,y1=camY+vh+40;
+ for(const r of rects){if(r.y>y1||r.y+r.h<y0)continue;const rb=BIOMES[biomeAt(r.y)];
+  ctx.fillStyle=r.peak?'#eee':rb.rock;ctx.fillRect(r.x,Math.max(r.y,y0),r.w,Math.min(r.y+r.h,y1)-Math.max(r.y,y0));
+  if(!r.side){ctx.fillStyle=rb.edge;ctx.fillRect(r.x,r.y,r.w,4)}
+  if(biomeAt(r.y)===1&&r.h<200){ctx.strokeStyle='#2e5a22';ctx.lineWidth=2;ctx.beginPath();for(let x=r.x+6;x<r.x+r.w;x+=14){ctx.moveTo(x,r.y+r.h);ctx.quadraticCurveTo(x+4,r.y+r.h+8,x,r.y+r.h+16)}ctx.stroke()}}
+ // peak flag
+ ctx.fillStyle='#555';ctx.fillRect(178,TOP-50,3,50);ctx.fillStyle='#f2a33a';ctx.beginPath();ctx.moveTo(181,TOP-50);ctx.lineTo(205,TOP-42);ctx.lineTo(181,TOP-34);ctx.fill();
+ const tt=performance.now()/1000;
+ for(const c of camps){ctx.fillStyle='#6b3e1f';ctx.fillRect(c.x-10,c.y-4,20,4);
+  for(let i=0;i<3;i++){ctx.fillStyle=['#ff4a1c','#ff9a1c','#ffe14a'][i];const h=14-i*4+Math.sin(tt*12+i)*2;ctx.beginPath();ctx.moveTo(c.x-6+i*2,c.y-4);ctx.lineTo(c.x,c.y-4-h);ctx.lineTo(c.x+6-i*2,c.y-4);ctx.fill()}}
+ for(const f of foods){if(eaten.has(f.id)||f.y<y0||f.y>y1)continue;
+  if(f.k==='berry'){ctx.fillStyle='#d6243a';for(const[a,c]of[[-3,0],[3,0],[0,-4]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c+2,3,0,7);ctx.fill()}}
+  else{ctx.fillStyle='#eee';ctx.fillRect(f.x-1.5,f.y,3,6);ctx.fillStyle='#b5482a';ctx.beginPath();ctx.arc(f.x,f.y+1,6,Math.PI,0);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(f.x-3,f.y-3,2,2)}}
+ if(lava<y1){ctx.fillStyle='#ff5a1a';ctx.fillRect(-60,lava,W+120,y1-lava+50);ctx.fillStyle='#ffc23a';for(let x=0;x<W;x+=20)ctx.fillRect(x,lava+Math.sin(tt*3+x)*2,10,3)}
+ for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.col,r.f,r.c,r.d,r.n)}
+ drawP(P.x,P.y,myColor,P.face,P.cling,P.down,net?myName:'');
+ for(const p of parts){ctx.globalAlpha=Math.max(0,p.l);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,2.5,2.5)}ctx.globalAlpha=1;
+ if(b===2){ctx.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<40;i++){const x=(i*97+tt*20*(1+i%3))%W,y=camY+((i*53+tt*40*(1+i%2))%vh);ctx.fillRect(x,y,2,2)}}
+ hud();
+}
+function drawP(x,y,col,f,cl,dn,name){
+ ctx.save();ctx.translate(x+6,y+PH);if(dn)ctx.rotate(Math.PI/2*(f||1));
+ ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(-6,-PH,12,PH,5):ctx.rect(-6,-PH,12,PH);ctx.fill();
+ ctx.fillStyle='#ffe0bd';ctx.fillRect(-4+(f>0?2:0),-PH+3,6,5);ctx.fillStyle='#000';ctx.fillRect(f>0?2:-2,-PH+4,1.5,2);
+ ctx.fillStyle='#5a3a22';ctx.fillRect(f>0?-9:5,-PH+6,4,8);
+ if(cl){ctx.fillStyle=col;ctx.fillRect(cl>0?5:-9,-PH+1,4,3)}
+ ctx.restore();
+ if(name){ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(name,x+6.5,y-4.5);ctx.fillStyle='#fff';ctx.fillText(name,x+6,y-5)}
+}
+function hud(){
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+ const bw=Math.min(220,CW-140),x=12,y=14+(window.visualViewport?0:0);
+ ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(x-4,y-4,bw+8,52);
+ ctx.fillStyle='#333';ctx.fillRect(x,y+14,bw,14);
+ const u=bw/100;let ex=x+bw;
+ for(const[v,c]of[[P.inj,'#d63030'],[P.hun,'#e08a2a'],[P.cold,'#4ab3ff']]){ex-=v*u;ctx.fillStyle=c;ctx.fillRect(ex,y+14,v*u,14)}
+ ctx.fillStyle=P.stam<20?'#ff7a3a':'#ffd04a';ctx.fillRect(x,y+14,P.stam*u,14);
+ ctx.font='bold 13px sans-serif';ctx.textAlign='left';ctx.fillStyle='#fff';ctx.fillText('體力',x,y+9);
+ ctx.font='11px sans-serif';ctx.fillText(`傷 ${P.inj|0}  飢 ${P.hun|0}  寒 ${P.cold|0}`,x+40,y+9);
+ ctx.fillText(BIOMES[biomeAt(P.y)].n+(net?`  · ${Object.keys(remotes).length+1}人`:''),x,y+42);
+ ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-P.y/4)|0} m`,CW-12,y+14);
+ ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4} m　${fmt(elapsed)}`,CW-12,y+32);
+ if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(net?`倒地 ${Math.ceil(P.downT)} 秒後重生`:'倒下了…',CW/2,CH*.4)}
+ if(net){let k=0;for(const id in remotes){const r=remotes[id];ctx.textAlign='right';ctx.fillStyle=r.col;ctx.font='11px sans-serif';ctx.fillText(`${r.n} ${Math.max(0,-r.y/4)|0}m${r.d?' 倒地':''}`,CW-12,y+50+k++*14)}}
+}
+
+// ---------- loop ----------
+let last=performance.now(),netT=0;
+function loop(now){
+ const dt=Math.min(.033,(now-last)/1000);last=now;
+ if(mode==='play'&&P)update(dt);
+ for(const k in K)prev[k]=K[k];
+ for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=300*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);
+ for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
+ shake-=dt;if(toastT>0&&(toastT-=dt)<=0)$('toast').textContent='';
+ if(net&&mode==='play'&&(netT+=dt)>.055){netT=0;netTick()}
+ if(P)render(dt);else{ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height)}
+ requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ---------- networking (PeerJS, optional) ----------
+let peer=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
+const PFX='pk2d-tw-';
+function loadPeer(){return new Promise((ok,no)=>{if(window.Peer)return ok();const s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';s.onload=ok;s.onerror=()=>no(new Error('無法載入連線函式庫'));document.head.appendChild(s)})}
+const st=t=>{$('status').textContent=t;$('rstatus').textContent=t};
+function getNick(){myName=($('nick').value.trim()||'玩家'+(Math.random()*90+10|0)).slice(0,8);try{localStorage.nick=myName}catch(_){}}
+function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].open&&conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn&&hostConn.open)hostConn.send(d)}
+function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].open&&conns[id].send({t:'lobby',pl});showLobby(pl)}
+function showLobby(pl){$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)}${p.id===myId?'（你）':''}${p.h?' 👑':''}</li>`).join('');
+ for(const p of pl)if(p.id===myId)myColor=p.col}
+async function host(){
+ getNick();st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
+ roomCode=Array.from({length:5},()=>'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.random()*31|0]).join('');
+ peer=new Peer(PFX+roomCode);
+ peer.on('open',id=>{myId=id;isHost=true;net=true;lobby={[id]:{n:myName,col:COLORS[0],h:1}};myColor=COLORS[0];openRoom();bcLobby()});
+ peer.on('connection',c=>{
+  c.on('data',d=>hostHandle(c.peer,d,false,c));
+  c.on('close',()=>{const n=lobby[c.peer]&&lobby[c.peer].n;delete conns[c.peer];delete lobby[c.peer];delete remotes[c.peer];bcLobby();if(n)toast(`${n} 離線了`)});
+ });
+ peer.on('error',e=>{if(e.type==='unavailable-id'){peer.destroy();host()}else st('連線錯誤：'+e.type)});
+ peer.on('disconnected',()=>{try{peer.reconnect()}catch(_){}});
+}
+function hostHandle(from,d,self,cc){
+ if(self){if(d.t==='help'&&d.to===myId)onHelp(d);if(d.t==='win')win(d.n,d.tm);return}
+ const c=cc||conns[from];
+ if(d.t==='hello'){
+  if(Object.keys(lobby).length>=4||mode!=='room'){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
+  conns[from]=c;const used=Object.values(lobby).map(v=>v.col);lobby[from]={n:String(d.n).slice(0,8),col:COLORS.find(x=>!used.includes(x))};bcLobby();
+ }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,col:lobby[from].col})}
+ else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
+ else if(d.t==='help'){if(d.to===myId)onHelp(d);else conns[d.to]&&conns[d.to].send(d)}
+ else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
+}
+function netTick(){
+ const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0};
+ if(isHost){const ps={[myId]:{...me,n:myName,col:myColor}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,n:r.n,col:r.col}}
+  for(const id in conns)conns[id].open&&conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
+ else hostConn&&hostConn.open&&hostConn.send({t:'st',...me});
+}
+async function join(code){
+ getNick();code=code.toUpperCase().trim();if(code.length<4){st('請輸入房間代碼');return}
+ st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
+ peer=new Peer();roomCode=code;
+ peer.on('open',id=>{myId=id;hostConn=peer.connect(PFX+code,{reliable:true});
+  hostConn.on('open',()=>{net=true;isHost=false;hostConn.send({t:'hello',n:myName});openRoom()});
+  hostConn.on('data',clientHandle);
+  hostConn.on('close',()=>{if(net){net=false;remotes={};toast('與房主斷線，改為單人模式');st('與房主斷線');if(mode==='room')leave()}});
+ });
+ peer.on('error',e=>st(e.type==='peer-unavailable'?'找不到房間，請確認代碼':'連線錯誤：'+e.type));
+}
+function clientHandle(d){
+ if(d.t==='lobby')showLobby(d.pl);
+ else if(d.t==='full'){st('房間已滿或已開始');net=false;leave()}
+ else if(d.t==='start'){eatenPending=null;startGame(d.seed)}
+ else if(d.t==='ps'){if(mode!=='play')return;lava=d.lava;if(d.lo)lavaOn=true;
+  for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
+  for(const id in remotes)if(!d.ps[id])delete remotes[id]}
+ else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
+ else if(d.t==='help'){if(d.to===myId)onHelp(d)}
+ else if(d.t==='win')win(d.n,d.tm);
+}
+let eatenPending=null;
+function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
+ $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('')}
+function leave(){try{peer&&peer.destroy()}catch(_){}peer=null;net=false;isHost=false;conns={};lobby={};remotes={};hostConn=null;mode='menu';P=null;
+ ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide')}
+function hostStart(){const s=Math.random()*1e9|0;for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
+
+// ---------- menu wiring ----------
+try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
+const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.toUpperCase();st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
+$('bSolo').onclick=()=>{getNick();net=false;myColor=COLORS[0];startGame(Math.random()*1e9|0)};
+$('bHost').onclick=host;
+$('bJoin').onclick=()=>join($('code').value);
+$('bStart').onclick=hostStart;
+$('bLeave').onclick=leave;
+$('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
+ try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
+$('bAgain').onclick=()=>{if(net&&isHost)hostStart();else if(!net)startGame(Math.random()*1e9|0)};
+$('bMenu').onclick=leave;
+</script></body></html>
