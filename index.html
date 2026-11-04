@@ -21,7 +21,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 .b{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;pointer-events:auto;touch-action:none}
 .b.on{background:rgba(255,200,80,.5)}
 #status{min-height:20px;color:#ffd27a;font-size:14px}
-#toast{position:fixed;top:70px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
+#toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 </style></head><body>
 <canvas id="c"></canvas>
 <div id="toast"></div>
@@ -39,14 +39,14 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <input id="nick" maxlength="8" placeholder="暱稱">
  <button id="bSolo">單人遊玩</button>
  <button id="bHost" class="alt">建立房間</button>
- <div style="display:flex;gap:6px"><input id="code" maxlength="5" placeholder="房間代碼" style="width:120px;text-transform:uppercase"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
+ <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
  <div id="status"></div>
  <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充（蘑菇有好有壞）。<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點。多人時靠近隊友按「助」可拉隊友一把，或救起倒地隊友。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓、E 助</div>
 </div>
 <div id="room" class="ov hide">
- <h2 style="margin:0">房間代碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
+ <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
  <button id="bCopy" class="alt">複製分享連結</button>
- <ul id="plist"></ul>
+ <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul>
  <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
  <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
  <button id="bLeave" class="alt">離開</button>
@@ -251,7 +251,12 @@ function hud(){
  ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-P.y/4)|0} m`,CW-12,y+14);
  ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4} m　${fmt(elapsed)}`,CW-12,y+32);
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(net?`倒地 ${Math.ceil(P.downT)} 秒後重生`:'倒下了…',CW/2,CH*.4)}
- if(net){let k=0;for(const id in remotes){const r=remotes[id];ctx.textAlign='right';ctx.fillStyle=r.col;ctx.font='11px sans-serif';ctx.fillText(`${r.n} ${Math.max(0,-r.y/4)|0}m${r.d?' 倒地':''}`,CW-12,y+50+k++*14)}}
+ if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,col:myColor}],pw=150,px=CW-pw-8,py=y+40;
+  ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*15);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
+  ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
+  L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+29+i*15;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
+   ctx.fillStyle='#fff';ctx.font='10px sans-serif';const alt=me?-P.y:r?-r.y:0;
+   ctx.fillText(`${p.n} #${p.h?roomCode:sid(p.id)}${me?'(你)':''} ${Math.max(0,alt/4)|0}m${(me?P.down:r&&r.d)?' 倒地':''}`,px+18,yy)})}
 }
 
 // ---------- loop ----------
@@ -271,17 +276,17 @@ requestAnimationFrame(loop);
 
 // ---------- networking (PeerJS, optional) ----------
 let peer=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
-const PFX='pk2d-tw-';
+const PFX='panjian-peak2d-v1-';let lobbyList=[];const sid=id=>String(id).replace(PFX,'').replace(/[^a-z0-9]/gi,'').slice(-4).toUpperCase();
 function loadPeer(){return new Promise((ok,no)=>{if(window.Peer)return ok();const s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';s.onload=ok;s.onerror=()=>no(new Error('無法載入連線函式庫'));document.head.appendChild(s)})}
 const st=t=>{$('status').textContent=t;$('rstatus').textContent=t};
 function getNick(){myName=($('nick').value.trim()||'玩家'+(Math.random()*90+10|0)).slice(0,8);try{localStorage.nick=myName}catch(_){}}
 function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].open&&conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn&&hostConn.open)hostConn.send(d)}
 function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].open&&conns[id].send({t:'lobby',pl});showLobby(pl)}
-function showLobby(pl){$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)}${p.id===myId?'（你）':''}${p.h?' 👑':''}</li>`).join('');
+function showLobby(pl){lobbyList=pl;$('pcount').textContent=`玩家 ${pl.length}/4`;$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
  for(const p of pl)if(p.id===myId)myColor=p.col}
 async function host(){
  getNick();st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
- roomCode=Array.from({length:5},()=>'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.random()*31|0]).join('');
+ roomCode=String(Math.random()*10000|0).padStart(4,'0');
  peer=new Peer(PFX+roomCode);
  peer.on('open',id=>{myId=id;isHost=true;net=true;lobby={[id]:{n:myName,col:COLORS[0],h:1}};myColor=COLORS[0];openRoom();bcLobby()});
  peer.on('connection',c=>{
@@ -309,7 +314,7 @@ function netTick(){
  else hostConn&&hostConn.open&&hostConn.send({t:'st',...me});
 }
 async function join(code){
- getNick();code=code.toUpperCase().trim();if(code.length<4){st('請輸入房間代碼');return}
+ getNick();code=code.replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
  st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
  peer=new Peer();roomCode=code;
  peer.on('open',id=>{myId=id;hostConn=peer.connect(PFX+code,{reliable:true});
@@ -333,15 +338,16 @@ function clientHandle(d){
 let eatenPending=null;
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('')}
-function leave(){try{peer&&peer.destroy()}catch(_){}peer=null;net=false;isHost=false;conns={};lobby={};remotes={};hostConn=null;mode='menu';P=null;
+function leave(){try{peer&&peer.destroy()}catch(_){}peer=null;net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide')}
 function hostStart(){const s=Math.random()*1e9|0;for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
-const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.toUpperCase();st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
+const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.replace(/\D/g,'').slice(0,4);st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
 $('bSolo').onclick=()=>{getNick();net=false;myColor=COLORS[0];startGame(Math.random()*1e9|0)};
 $('bHost').onclick=host;
+$('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
 $('bJoin').onclick=()=>join($('code').value);
 $('bStart').onclick=hostStart;
 $('bLeave').onclick=leave;
