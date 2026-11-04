@@ -56,7 +56,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <button id="bHost" class="alt">建立房間</button>
  <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
  <div id="status"></div><button id="bRetry" class="alt hide">重試連線</button>
- <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充（蘑菇有好有壞）。<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點，倒下後會在最後到達的營火重生。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓</div>
+ <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充：<b style="color:#ff9a3c">橘色白點蘑菇</b>是好的（回血、體力全滿），<b style="color:#c06bff">紫色蘑菇有毒</b>（暈眩、扣體力），別吃！<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點，倒下後會在最後到達的營火重生。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓</div>
 </div>
 <div id="room" class="ov hide">
  <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
@@ -145,7 +145,8 @@ const ANIMS=['idle','walk','jump','climb','fall'];
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
 // ---------- world ----------
-let rects,foods,camps,eaten;
+let rects,foods,camps,eaten,PEAK={x:110,y:0,w:140};
+function fk(v,pb){if(v<pb)return'berry';return(v-pb)/(1-pb)<.2+.35*DIFF?'pois':'mush'}
 function genWorld(lv,sd,tries=0){levelCfg(lv);
  const R=rng(sd!=null?sd:LV*7919+104729);rects=[];foods=[];camps=[];eaten=new Set();
  rects.push({x:-60,y:0,w:W+120,h:400});
@@ -172,8 +173,8 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   const wmn=60-20*DIFF,r=place(ny,wmn+R()*Math.max(0,wmax-wmn),40,14,{path:1});rects.push(r);path.push(r);
   // approaching a wall: this rise and the turn's rise are both 45px so the turn ledge clears the old take-off spot
   const room=side>0?W-r.x-r.w:r.x,need=r.y-rmin-6<=m.y+20?(m.peak?84:78):52;turn=false;if(room<need){r.y=prev.y-45;turn=true}
-  if(R()<.22)foods.push({id:fid++,x:r.x+r.w/2,y:r.y-7,k:R()<.6?'berry':'mush'});
-  if(R()<.75-DIFF*.4){const w=40+R()*60,x=R()*(W-w);rects.push({x,y:r.y,w,h:14,ex:1});if(R()<.25)foods.push({id:fid++,x:x+w/2,y:r.y-7,k:R()<.5?'berry':'mush'})}
+  if(R()<.22)foods.push({id:fid++,x:r.x+r.w/2,y:r.y-7,k:fk(R(),.6)});
+  if(R()<.75-DIFF*.4){const w=40+R()*60,x=R()*(W-w);rects.push({x,y:r.y,w,h:14,ex:1});if(R()<.25)foods.push({id:fid++,x:x+w/2,y:r.y-7,k:fk(R(),.5)})}
   if(R()<.1+DIFF*.25){const h=80+R()*90,px=20+R()*(W-60);rects.push({x:px,y:r.y-h,w:18,h,pil:1})}
  }
  // side ledges / pillars must stay out of the critical-path corridors
@@ -188,7 +189,9 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(!r.path||r.camp||r.peak||!rects.includes(r)||r.w<40||r.y-TOP<CPD*.5||big.some(c=>c.y<r.y&&r.y-c.y<CPD*.5))continue;
    if(ly-r.y>=CPD){camps.push({x:r.x+Math.min(r.w/2,14),y:r.y,b:-1,k:100+ci++,mini:1});foods.push({id:fid++,x:r.x+r.w-8,y:r.y-7,k:'berry'});ly=r.y}}}
  foods=foods.filter(f=>rects.some(r=>!r.side&&f.x>=r.x&&f.x<=r.x+r.w&&Math.abs(f.y+7-r.y)<1));
- rects.push(peakR);
+ {// never two poison mushrooms in a row (by altitude); early levels keep 3 safe items between them
+  const gap=DIFF<.3?3:1;let since=99;for(const f of [...foods].sort((a,b)=>b.y-a.y)){if(f.k==='pois'){if(since<gap)f.k='mush';else since=0}else since++}}
+ rects.push(peakR);PEAK=peakR;
  ensurePath();
  // early levels: catch ledges beside the first path ledges so a missed jump doesn't drop all the way to the beach; kept only if the validated route stays intact
  if(DIFF<.35&&NAV.path){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
@@ -284,15 +287,23 @@ document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
 const pressed=k=>K[k]&&!prev[k];
 
 // ---------- game flow ----------
-function prog(){try{return JSON.parse(localStorage.pj_prog||'{}')}catch(_){return{}}}
 const DEBUG=/[?&]debug=1\b/.test(location.search);let DBG_INF=false;
+const SK=DEBUG?'pjdbg_':'pj_';// debug runs never touch normal saves
+function prog(){try{return JSON.parse(localStorage[SK+'prog']||'{}')}catch(_){return{}}}
+function cps(){try{const o=JSON.parse(localStorage[SK+'cps']||'{}');if(!DEBUG&&localStorage.pj_cp){const c=JSON.parse(localStorage.pj_cp);if(c&&c.lv&&!o[c.lv])o[c.lv]=c;localStorage.removeItem('pj_cp');localStorage.pj_cps=JSON.stringify(o)}return o}catch(_){return{}}}
+function setCps(o){try{localStorage[SK+'cps']=JSON.stringify(o)}catch(_){}}
+function cpMeta(lv){const c=cps()[lv];return c&&Number.isFinite(c.x)?c:null}
+function saveEaten(){if(net||window.BOT||!P||mode!=='play')return;const o=cps();o[LV]=Object.assign(o[LV]||{lv:LV},{e:[...eaten]});setCps(o)}
 function cleared(){return DEBUG?NLV:prog().c||0}
 function nextLv(){return Math.min(NLV,cleared()+1)}
-function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!g.b[lv]||t<g.b[lv])g.b[lv]=+t.toFixed(1);try{localStorage.pj_prog=JSON.stringify(g)}catch(_){}}
-function renderLv(){const n=nextLv();let cm='';try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===n)cm=`（營火 ${Math.max(0,-(c.y+PH)/4)|0} m）`}catch(_){}$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
+function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!g.b[lv]||t<g.b[lv])g.b[lv]=+t.toFixed(1);try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
+function renderLv(){const n=nextLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（營火 ${Math.max(0,-(C0.y+PH)/4)|0} m）`;$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
  $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;
   e.style.cssText='min-width:0;width:52px;height:46px;padding:0;font-size:15px;line-height:1.1;'+(ok?'':'opacity:.35');
-  e.innerHTML=i+(b[i]?`<br><small style="font-size:9px">${fmt(b[i])}</small>`:'');e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};$('lvgrid').appendChild(e)}
+  const cq=ok&&cpMeta(i);e.style.position='relative';e.innerHTML=i+(cq?`<br><small style="font-size:9px">🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?`<br><small style="font-size:9px">${fmt(b[i])}</small>`:'');
+  e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};
+  if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:1px;top:0;font-size:12px;padding:0 3px;background:rgba(0,0,0,.35);border-radius:4px';z.onclick=ev=>{ev.stopPropagation();const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
+  $('lvgrid').appendChild(e)}
  const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n)}}
 function startGame(s){
  seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
@@ -302,17 +313,18 @@ function startGame(s){
   for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
  hint=null;bestY=P.y;progT=0;nameT0=performance.now()/1000;bannerZ=0;bannerT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
+ const sv=!net&&!window.BOT&&cps()[LV];if(sv&&Array.isArray(sv.e))for(const id of sv.e)eaten.add(id);
  const cp=!net&&!window.BOT&&loadCP(s);if(cp){Object.assign(P,{x:cp.x,y:cp.y});P.camp=cp.camp;checkpoint={x:cp.x,y:cp.y};t0-=cp.el*1000;elapsed=cp.el;camY=P.y-200;bestY=P.y;toast(`第${LV}關 · 從營火繼續（${Math.max(0,-(cp.y+PH)/4)|0} m）`)}
  resize();try{render(0)}catch(e){console.error('first frame',e)}
 }
-function loadCP(lv){try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===lv&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&!hit(c.x,c.y,PW,PH))return c}catch(_){}return null}
-function saveCP(){if(net||window.BOT)return;try{localStorage.pj_cp=JSON.stringify({lv:LV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1)})}catch(_){}}
-function clearCP(lv){try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===lv)localStorage.removeItem('pj_cp')}catch(_){}}
+function loadCP(lv){const c=cpMeta(lv);return c&&Number.isFinite(c.y)&&!hit(c.x,c.y,PW,PH)?c:null}
+function saveCP(){if(net||window.BOT)return;const o=cps();o[LV]={lv:LV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
+function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
 function win(name,time){if(mode!=='play')return;mode='end';clearCP(LV);auMusic(false);sfx('win');$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
  $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
- $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
+ $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);if(net&&!isHost)$('einfo').innerHTML+=`<br><span id="gwait" style="opacity:.85">等房主按下一關…</span>`;$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
 const esc=s=>String(s).replace(/[<>&"]/g,c=>'&#'+c.charCodeAt(0)+';');
 
@@ -327,6 +339,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  if(nearCamp&&P.camp!==nearCamp.k&&nearCamp.y-PH-1<checkpoint.y-1){sfx('camp');flash(nearCamp.x,nearCamp.y-8,'#ffc040');puff(nearCamp.x,nearCamp.y-8,'#ffcf5a',14,90,3);P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
  if(P.y<bestY-10){bestY=P.y;progT=elapsed}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
+ if(hint&&P.ground&&!P.cling&&!P.down){const n=standNode();if(n&&n!==hint.n)makeHint(1)}// re-target whenever the ledge under the player changes (e.g. after a fall)
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
  if(P.down){hint=null;P.downT-=dt;P.vx=0;P.vy=Math.min(900,P.vy+1000*dt);moveY(dt);if(P.downT<=0)respawn();return}
  const ax=(K.right?1:0)-(K.left?1:0);if(ax)P.face=ax;
@@ -337,12 +350,12 @@ function update(dt){try{auSteps(dt)}catch(_){}
  if(P.cling){
   const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
   P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up&&!dn?18*DIFF:0);
-  P.stam-=((2.5+4.5*DIFF)+up*(5+8*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
-  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  P.stam-=((1.2+5.8*DIFF)+up*(2.3+10.7*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
+  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
   P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:8));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.jh=1;P.stam=Math.max(0,P.stam-8);P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.jh=1;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
@@ -363,19 +376,20 @@ function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;const r
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;flash(f.x,f.y,f.k==='berry'?'#ff6a80':'#fff2c0');
  if(mine){sfx('pick');
   if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
-  else if(Math.random()<.6){P.inj=Math.max(0,P.inj-20);P.hun=Math.max(0,P.hun-10);P.stam=maxS(P);toast('好蘑菇！傷勢恢復、體力全滿');puff(f.x,f.y,'#6f6',10)}
-  else{P.inj=Math.min(80,P.inj+15);P.stam*=.5;toast('毒蘑菇！頭好暈…');puff(f.x,f.y,'#a4f',10)}
+  else if(f.k==='mush'){P.inj=Math.max(0,P.inj-20);P.hun=Math.max(0,P.hun-10);P.stam=maxS(P);toast('橘色好蘑菇！傷勢恢復、體力全滿');puff(f.x,f.y,'#6f6',10)}
+  else{P.inj=Math.min(60,P.inj+6+6*DIFF);P.stam*=.8;toast('紫色毒蘑菇！有點暈…紫色的別吃');puff(f.x,f.y,'#a4f',10)}
+  saveEaten();
   if(net)send({t:'eat',id});
  }}
 
 
 // ---------- hint ----------
 let hint=null,bestY=0,progT=0;
-function makeHint(){
+function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
- if(!path||!path.length){toast('先站穩在平台上，再按「？」');return}
+ if(!path||!path.length){if(quiet)hint=null;else toast('先站穩在平台上，再按「？」');return}
  const e=path[0],t=e.to,tx=(e.lx!=null?e.lx:Math.max(t.a,Math.min(t.b,P.x)))+6;
- hint={r:t.r,tx,ty:t.r.y,e,gy:n.y+PH,sy:P.y,reach:1};hintPhase()}
+ hint={r:t.r,tx,ty:t.r.y,e,gy:n.y+PH,sy:P.y,reach:1,n};hintPhase()}
 // hint text/arrow are derived from the same validated edge every frame, so they always agree
 function hintPhase(){const h=hint;if(!h||!h.e)return;const e=h.e,D=d=>d<0?'左':'右',need=e.sx-P.x,at=Math.abs(need)<=8;h.mx=e.sx+6;
  if(e.run){const dxr=h.tx-(P.x+6);if((e.sx-P.x)*e.dir<24){h.walk=true;h.mx=e.sx-e.dir*32+6;h.text=`先往${D(-e.dir)}退到黃色標記處`}else{h.walk=false;h.text=`往${D(e.dir)}助跑，在黃色標記處起跳`}}
@@ -414,21 +428,24 @@ function render(dt){
   ctx.fillStyle='rgba(0,0,0,.22)';rrect(r.x+2,r.y+4,r.w,h,rr);ctx.fill();
   ctx.fillStyle=r.peak?'#eef2f6':T.rock;rrect(r.x,r.y,r.w,h,rr);ctx.fill();
   ctx.fillStyle=r.peak?'#fff':rb.edge;rrect(r.x,r.y,r.w,Math.min(5,h),[rr,rr,1,1]);ctx.fill();
+  if(r.peak){ctx.fillStyle='#9aa7b4';for(let x=r.x+6;x<r.x+r.w-6;x+=13){ctx.beginPath();ctx.moveTo(x,r.y+h);ctx.lineTo(x+4,r.y+6);ctx.lineTo(x+8,r.y+h);ctx.fill()}ctx.fillStyle='#cfe8f7';for(let x=r.x+4;x<r.x+r.w-4;x+=9){ctx.beginPath();ctx.moveTo(x,r.y+4);ctx.lineTo(x+3,r.y+10+(x*5%4));ctx.lineTo(x+6,r.y+4);ctx.fill()}
+   ctx.fillStyle='#7d8790';const cx=r.x+18;for(const[a,b2,w2]of[[0,-4,14],[2,-8,10],[4,-11,6]])rrect(cx+a,r.y+b2,w2,4,2),ctx.fill()}
   if(bi===1){ctx.fillStyle='#8fcf5a';for(let x=r.x+3;x<r.x+r.w-3;x+=6){ctx.beginPath();ctx.moveTo(x,r.y+1);ctx.lineTo(x+2,r.y-3-(x*7%3));ctx.lineTo(x+4,r.y+1);ctx.fill()}}
   else if(bi===2){ctx.fillStyle='#fff';for(let x=r.x+5;x<r.x+r.w-5;x+=11){ctx.beginPath();ctx.arc(x,r.y+5,2,0,Math.PI);ctx.fill()}}
   if(biomeAt(r.y)===1&&r.h<200){ctx.strokeStyle='#2e5a22';ctx.lineWidth=2;ctx.beginPath();for(let x=r.x+6;x<r.x+r.w;x+=14){ctx.moveTo(x,r.y+r.h);ctx.quadraticCurveTo(x+4,r.y+r.h+8,x,r.y+r.h+16)}ctx.stroke()}}
  // peak flag
- ctx.fillStyle='#555';ctx.fillRect(178,TOP-50,3,50);ctx.fillStyle='#f2a33a';ctx.beginPath();ctx.moveTo(181,TOP-50);ctx.lineTo(205,TOP-42);ctx.lineTo(181,TOP-34);ctx.fill();
+ {const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y,wv=Math.sin(performance.now()/250)*3;ctx.fillStyle='#444';ctx.fillRect(fx,fy-52,3,52);ctx.fillStyle='#e8433a';ctx.beginPath();ctx.moveTo(fx+3,fy-52);ctx.quadraticCurveTo(fx+16,fy-48+wv,fx+30,fy-46+wv);ctx.quadraticCurveTo(fx+16,fy-40-wv,fx+3,fy-36);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillText('山頂',fx+14,fy-42+wv*.5);ctx.fillStyle='#ffd34a';ctx.beginPath();ctx.arc(fx+1.5,fy-53,2.5,0,7);ctx.fill()}
  const tt=performance.now()/1000;
  for(const c of camps){if(c.y<y0-40||c.y>y1+40)continue;const fl=.85+.15*Math.sin(tt*17+c.x)+.08*Math.sin(tt*31);const gl=ctx.createRadialGradient(c.x,c.y-8,0,c.x,c.y-8,46*fl);gl.addColorStop(0,'rgba(255,170,60,.55)');gl.addColorStop(1,'rgba(255,120,40,0)');ctx.fillStyle=gl;ctx.fillRect(c.x-50,c.y-58,100,100);
   if(Math.random()<dt*14&&parts.length<260)parts.push({x:c.x+(Math.random()-.5)*8,y:c.y-8,vx:(Math.random()-.5)*10,vy:-30-Math.random()*30,l:.5+Math.random()*.4,c:Math.random()<.5?'#ffb43a':'#ff6a1c',s:1.6,ng:1});
   ctx.fillStyle='#6b3e1f';ctx.fillRect(c.x-10,c.y-4,20,4);
   for(let i=0;i<3;i++){ctx.fillStyle=['#ff4a1c','#ff9a1c','#ffe14a'][i];const h=14-i*4+Math.sin(tt*12+i)*2;ctx.beginPath();ctx.moveTo(c.x-6+i*2,c.y-4);ctx.lineTo(c.x,c.y-4-h);ctx.lineTo(c.x+6-i*2,c.y-4);ctx.fill()}}
- for(const f of foods){if(eaten.has(f.id)||f.y<y0||f.y>y1)continue;{const pg=.6+.4*Math.sin(tt*4+f.id),gl=ctx.createRadialGradient(f.x,f.y+1,0,f.x,f.y+1,13);gl.addColorStop(0,f.k==='berry'?`rgba(255,90,110,${.5*pg})`:`rgba(255,240,200,${.45*pg})`);gl.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=gl;ctx.fillRect(f.x-14,f.y-13,28,28)}
+ for(const f of foods){if(eaten.has(f.id)||f.y<y0||f.y>y1)continue;{const pg=.6+.4*Math.sin(tt*4+f.id),gl=ctx.createRadialGradient(f.x,f.y+1,0,f.x,f.y+1,13);gl.addColorStop(0,f.k==='berry'?`rgba(255,90,110,${.5*pg})`:f.k==='pois'?`rgba(170,60,255,${.5*pg})`:`rgba(255,160,60,${.45*pg})`);gl.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=gl;ctx.fillRect(f.x-14,f.y-13,28,28)}
   if(f.k==='berry'){ctx.fillStyle='#d6243a';for(const[a,c]of[[-3,0],[3,0],[0,-4]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c+2,3,0,7);ctx.fill()}}
-  else{ctx.fillStyle='#eee';ctx.fillRect(f.x-1.5,f.y,3,6);ctx.fillStyle='#b5482a';ctx.beginPath();ctx.arc(f.x,f.y+1,6,Math.PI,0);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(f.x-3,f.y-3,2,2)}}
+  else if(f.k==='mush'){ctx.fillStyle='#f6ecd6';ctx.fillRect(f.x-2,f.y,4,7);ctx.fillStyle='#ff8a1c';ctx.beginPath();ctx.arc(f.x,f.y+1,7,Math.PI,0);ctx.fill();ctx.fillStyle='#fff';for(const[a,c]of[[-4,-1],[0,-4],[4,-1]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.4,0,7);ctx.fill()}}
+  else{ctx.fillStyle='#d9c6f0';ctx.fillRect(f.x-2,f.y,4,7);ctx.fillStyle='#9b30ff';ctx.beginPath();ctx.moveTo(f.x-8,f.y+1);ctx.lineTo(f.x,f.y-8);ctx.lineTo(f.x+8,f.y+1);ctx.fill();ctx.strokeStyle='#4b0f86';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#b6ff4a';for(const[a,c]of[[-3,-1],[2,-3],[3,0]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.2,0,7);ctx.fill()}}}
  if(lava<y1){ctx.fillStyle='#ff5a1a';ctx.fillRect(-60,lava,W+120,y1-lava+50);ctx.fillStyle='#ffc23a';for(let x=0;x<W;x+=20)ctx.fillRect(x,lava+Math.sin(tt*3+x)*2,10,3)}
- for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.g,r.ci,r.f,ANIMS[r.a]||(r.c?'climb':'idle'),r.d,r.n)}
+ for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.g,r.ci,r.f,ANIMS[r.a]||(r.c?'climb':'idle'),r.d,nameOf(id,r.n))}
  drawP(P.x,P.y,myGender,myCI,P.face,animOf(P),P.down,net?myName:'',1);
  for(const p of parts){ctx.globalAlpha=Math.max(0,Math.min(1,p.l*1.5));ctx.fillStyle=p.c;const z=p.s||2.5;ctx.fillRect(p.x-z/2,p.y-z/2,z,z)}ctx.globalAlpha=1;
  for(const F of flashes){const k=F.t/.45,rad=8+28*(1-k);ctx.globalAlpha=Math.max(0,k);ctx.strokeStyle=F.c;ctx.lineWidth=2.5*k+.5;ctx.beginPath();ctx.arc(F.x,F.y,rad,0,7);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(F.x,F.y,rad*.45,0,7);ctx.fill()}ctx.globalAlpha=1;
@@ -478,6 +495,8 @@ function hud(){
  ctx.fillStyle='rgba(10,16,28,.5)';rrect(rx-5,ry0-4,10,H+8,5);ctx.fill();
  for(let b2=0;b2<NB;b2++){const a0=fr(-b2*BL),a1=fr(-(b2+1)*BL);ctx.fillStyle=BIOMES[b2].edge;ctx.fillRect(rx-2,ry1-a1*H,4,(a1-a0)*H)}
  for(const c of camps){const yy=ry1-fr(c.y)*H;ctx.fillStyle='#ff9a1c';ctx.fillRect(rx-6,yy-1,12,2)}
+ if(lavaOn&&lava<1e8){const ly=ry1-fr(lava)*H;ctx.fillStyle='rgba(255,80,20,.85)';ctx.fillRect(rx-4,ly,8,ry1-ly);ctx.fillStyle='#ffc23a';ctx.fillRect(rx-8,ly-1.5,16,3);
+  const gap=Math.max(0,(lava-(P.y+PH))/4)|0,dg=gap<15,pu=dg?.8+.2*Math.sin(performance.now()/100):1;ctx.globalAlpha=pu;ctx.fillStyle=dg?'rgba(200,30,10,.9)':'rgba(120,30,10,.75)';rrect(CW/2-78,CH-262,156,22,8);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText(`🌋 熔岩在你下方 ${gap} m`,CW/2,CH-246);ctx.globalAlpha=1}
  ctx.fillStyle='#fff';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('🏁',rx,ry0-8);
  for(const id in remotes){const r=remotes[id];ctx.fillStyle=COLORS[r.ci]||'#888';ctx.beginPath();ctx.arc(rx,ry1-fr(r.dy+PH)*H,4,0,7);ctx.fill()}
  const py=ry1-fr(P.y+PH)*H;ctx.fillStyle=COLORS[myCI]||'#fff';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(rx,py,6,0,7);ctx.fill();ctx.stroke();
@@ -525,12 +544,16 @@ const sid=id=>String(id).slice(-4).toUpperCase();
 const safe=f=>(...a)=>{try{f(...a)}catch(e){console.warn('net handler',e)}};
 const ERR={notfound:'找不到這個房間，請確認邀請碼',full:'房間已滿（最多 4 人）',started:'遊戲已開始，無法加入',nocode:'目前沒有空房間代碼，請稍後再試',bad:'邀請碼格式錯誤'};
 const st=t=>{$('status').textContent=t;$('rstatus').textContent=t};
-function getNick(){myName=($('nick').value.trim()||'玩家'+(Math.random()*90+10|0)).slice(0,8);try{localStorage.nick=myName}catch(_){}}
+let autoNick='玩家'+(Math.random()*900+100|0);
+function getNick(){const v=$('nick').value.trim();myName=(v||autoNick).slice(0,8);if(v)try{localStorage.nick=v}catch(_){}}
+// same nickname twice in a room → show 乙, 乙2, 乙3… (by join order)
+function uniqNames(L){const c={};for(const p of L){const b=p.n||'玩家';c[b]=(c[b]||0)+1;p.n=c[b]>1?(b+c[b]).slice(0,10):b}return L}
+function nameOf(id,n){const p=lobbyList.find(p=>p.id===id);return p?p.n:n}
 const wsend=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
 const peerConn=id=>({open:true,send:d=>wsend({t:'msg',to:id,d}),close:()=>wsend({t:'kick',id})});
 function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn)hostConn.send(d)}
 function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].send({t:'lobby',pl});if(!serverRoster)showLobby(pl)}
-function showLobby(pl){lobbyList=pl.map(p=>({...p,ci:p.ci??p.c??COLORS.indexOf(p.col)}));$('pcount').textContent=`玩家 ${pl.length}/4`;
+function showLobby(pl){lobbyList=uniqNames(pl.map(p=>({...p,ci:p.ci??p.c??COLORS.indexOf(p.col)})));if(lobbyList.some(p=>p.id===myId))myName=nameOf(myId,myName);$('pcount').textContent=`玩家 ${pl.length}/4`;
  $('plist').innerHTML=lobbyList.map(p=>`<li style="border-left:6px solid ${COLORS[p.ci]}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[p.ci]};vertical-align:-1px"></span> ${gSym(p.g)} ${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
  for(const p of lobbyList)if(p.id===myId){myCI=p.ci;if(p.g)myGender=p.g;saveChar()}
  if(isHost&&serverRoster){for(const p of lobbyList)if(lobby[p.id])Object.assign(lobby[p.id],{g:p.g,ci:p.ci,col:COLORS[p.ci]})}
@@ -673,13 +696,14 @@ $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgTeleport(m){if(!P||mode!=='play')return;const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
  if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2,y:n.y,vx:0,vy:0,down:false});checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
-function dbgZone(b){dbgTeleport(Math.max(0,b*BL/4+2))}
+function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:72px;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
- d.innerHTML='DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label>';
+ d.innerHTML='DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:10px;opacity:.8"></div>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0');
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
  $('dInf').onchange=e=>{DBG_INF=e.target.checked};
+ const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
   if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
   else if(k>='1'&&k<='4')dbgZone(+k-1);else if(k==='i'){DBG_INF=!DBG_INF;$('dInf').checked=DBG_INF;toast('∞體力 '+(DBG_INF?'開':'關'))}})}
