@@ -5,7 +5,7 @@
     36,
     123
   ],
-  "scale": 0.1593,
+  "scale": 0.1667,
   "facesLeft": false,
   "sheets": {
     "male": {
@@ -16,9 +16,7 @@
         "male_blue.png",
         "male_green.png",
         "male_yellow.png"
-      ],
-      "scale": 0.171,
-      "name": "阿岩"
+      ]
     },
     "female": {
       "base": "female.png",
@@ -28,9 +26,7 @@
         "female_blue.png",
         "female_green.png",
         "female_yellow.png"
-      ],
-      "scale": 0.148,
-      "name": "小攀"
+      ]
     }
   },
   "colors": [

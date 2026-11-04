@@ -18,8 +18,8 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #plist{list-style:none;padding:0;margin:4px 0;min-width:220px}
 #plist li{padding:6px;margin:3px;border-radius:8px;background:rgba(255,255,255,.1)}
 #ctl{position:fixed;left:0;right:0;bottom:0;height:200px;z-index:3;pointer-events:none}
-.b{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;pointer-events:auto;touch-action:none}
-.b.on{background:rgba(255,200,80,.5)}
+.b{position:absolute;width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.42);border:3px solid rgba(255,255,255,.85);color:#123;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;pointer-events:auto;touch-action:none}
+.b.on{background:rgba(255,200,80,.85)}
 #status{min-height:20px;color:#ffd27a;font-size:14px}
 #hintb{position:fixed;left:12px;top:78px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:18px;z-index:3;padding:0;min-width:0}
 #ctl.hide~#hintb{display:none}
@@ -35,12 +35,12 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 <canvas id="c"></canvas>
 <div id="toast"></div>
 <div id="ctl" class="hide">
- <div class="b" data-k="left"  style="left:10px;bottom:62px">◀</div>
- <div class="b" data-k="right" style="left:118px;bottom:62px">▶</div>
- <div class="b" data-k="up"    style="left:64px;bottom:120px">▲</div>
- <div class="b" data-k="down"  style="left:64px;bottom:6px">▼</div>
- <div class="b" data-k="grab"  style="right:96px;bottom:20px;width:76px;height:76px">抓</div>
- <div class="b" data-k="jump"  style="right:10px;bottom:70px;width:76px;height:76px">跳</div>
+ <div class="b" data-k="left"  style="left:6px;bottom:66px">◀</div>
+ <div class="b" data-k="right" style="left:126px;bottom:66px">▶</div>
+ <div class="b" data-k="up"    style="left:66px;bottom:128px">▲</div>
+ <div class="b" data-k="down"  style="left:66px;bottom:4px">▼</div>
+ <div class="b" data-k="grab"  style="right:104px;bottom:40px;width:88px;height:88px;font-size:26px">抓</div>
+ <div class="b" data-k="jump"  style="right:8px;bottom:40px;width:88px;height:88px;font-size:26px">跳</div>
 </div>
 <button id="hintb" aria-label="提示">？</button>
 <div id="menu" class="ov">
@@ -182,7 +182,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
-const NAV_DT=1/60;let NAV_JV=370*.9,NAV_AS=140*.85;// 90% jump speed = 81% jump height, 85% air speed
+const JV=390,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=140*.85;// 90% jump speed = 81% jump height, 85% air speed
 let NAV=null;
 function buildNodes(){const nodes=[];
  for(const r of rects){if(r.side)continue;const x0=Math.max(r.x,0),x1=Math.min(r.x+r.w,W)-PW;let a=null;
@@ -229,17 +229,18 @@ function hit(x,y,w,h){const E=1e-6;for(const r of rects)if(x<r.x+r.w-E&&x+w>r.x+
 const PW=12,PH=18;
 let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
-const maxS=p=>Math.max(8,100-p.inj-p.hun-p.cold);
+const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
 function toast(s){$('toast').textContent=s;toastT=2.5}
 function puff(x,y,c,n,sp=80){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*sp,vy:-Math.random()*sp,l:.6+Math.random()*.4,c})}
 
 // ---------- input ----------
 const K={},prev={};
 const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab'};
-addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=km[e.code];if(k){K[k]=1;e.preventDefault()}});
+let JB=0;// jump buffer (s)
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=km[e.code];if(k){if(k==='jump'&&!e.repeat)JB=.15;K[k]=1;e.preventDefault()}});
 addEventListener('keyup',e=>{const k=km[e.code];if(k)K[k]=0});
 document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
- const on=e=>{e.preventDefault();K[k]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
+ const on=e=>{e.preventDefault();if(k==='jump')JB=.15;K[k]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
  const off=e=>{K[k]=0;b.classList.remove('on')};
  b.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(t=>b.addEventListener(t,off))});
 const pressed=k=>K[k]&&!prev[k];
@@ -257,7 +258,9 @@ function renderLv(){const n=nextLv();$('bSolo').textContent=`繼續 · 第${n}�
 function startGame(s){
  seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';
- for(const id in remotes)Object.assign(remotes[id],{x:P.x,y:P.y,dx:P.x,dy:P.y});
+ if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-36,36,-72],x0=P.x;
+  L.forEach((p,i)=>{const x=x0+SL[i%4];if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
+  for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
  hint=null;bestY=P.y;progT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
 }
@@ -274,7 +277,7 @@ function update(dt){
  elapsed=window.BOT?BOT.t:(performance.now()-t0)/1000;
  const b=biomeAt(P.y);
  // hunger & cold
- P.hun=Math.min(45,P.hun+dt*.35);
+ P.hun=Math.min(45,P.hun+dt*(.15+.2*DIFF));
  const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
  if(nearCamp&&P.camp!==nearCamp.b){P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
@@ -283,21 +286,22 @@ function update(dt){
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
  if(P.down){hint=null;P.downT-=dt;P.vx=0;P.vy=Math.min(900,P.vy+1000*dt);moveY(dt);if(P.downT<=0)respawn();return}
  const ax=(K.right?1:0)-(K.left?1:0);if(ax)P.face=ax;
+ if(pressed('jump'))JB=Math.max(JB,.15);JB=Math.max(0,JB-dt);P.coy=P.ground?.1:Math.max(0,(P.coy||0)-dt);
  const wl=touchWall(-1),wr=touchWall(1),wall=wl||wr;
  const MS=maxS(P);
- if(K.grab&&wall&&P.stam>0){if(!P.cling)P.cling=wl?-1:1}else P.cling=0;
+ if(K.grab&&wall&&P.stam>0){if(!P.cling)P.cling=wl?-1:1;if(ax&&ax===-P.cling)P.cling=0}else P.cling=0;
  if(P.cling){
   const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
-  P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up?30:0);
-  P.stam-=(7+up*13)*slip*dt*(b===2?1.1+DIFF*.2:1);
-  if(pressed('jump')&&P.stam>4){P.vy=-340;P.vx=-P.cling*170;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up&&!dn?18*DIFF:0);
+  P.stam-=((2.5+4.5*DIFF)+up*(5+8*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
+  if(JB>0&&P.stam>4){JB=0;P.vy=-350;P.vx=-P.cling*200;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
   P.vx+=(ax*140-P.vx)*Math.min(1,dt*(P.ground?14:5));
-  if(pressed('jump')&&P.ground&&P.stam>3){P.vy=-370;P.stam-=8;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1&&P.stam>3){JB=0;P.coy=0;P.vy=-JV;P.stam-=8;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
- if(P.ground&&!P.cling)P.stam+=40*dt;
+ if(P.ground&&!P.cling)P.stam+=55*dt;
  P.stam=Math.max(0,Math.min(P.stam,MS));
  P.x+=P.vx*dt;const rx=hit(P.x,P.y,PW,PH);if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
  const vy=P.vy;moveY(dt);
@@ -368,7 +372,7 @@ function render(dt){
 function drawP(x,y,g,ci,f,an,dn,name){
  ctx.save();ctx.translate(x+6,y+PH);if(dn)ctx.rotate(Math.PI/2*(f||1));
  drawCharacter(ctx,g,ci,an,performance.now()/1000,f||1);ctx.restore();
- if(name){ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(name,x+6.5,y-8.5);ctx.fillStyle='#fff';ctx.fillText(name,x+6,y-9)}
+ if(name){ctx.font='bold 7px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+6,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-17,tw,10,3):ctx.rect(cx-tw/2,y-17,tw,10);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-9.5)}
 }
 function hud(){
  ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -485,7 +489,7 @@ function hostHandle(from,d,self,c){
   if(mid){pendingSnap.add(from);flushSnaps();const n=lobby[from].n;for(const id in conns)if(id!==from)conns[id].send({t:'pjoin',n});toast(`${n} 加入了遊戲`)}
  }else if(d.t==='pick'){const L=lobby[from];if(!L)return;if(d.g)L.g=d.g==='f'?'f':'m';
   if(d.c!=null&&!Object.entries(lobby).some(([id,v])=>id!==from&&v.ci===d.c)&&d.c>=0&&d.c<COLORS.length){L.ci=d.c;L.col=COLORS[d.c]}bcLobby();
- }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,g:lobby[from].g,ci:lobby[from].ci})}
+ }else if(d.t==='st'){const L=lobbyList.find(p=>p.id===from)||lobby[from];if(L)remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:L.n,g:L.g,ci:L.ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
 }
