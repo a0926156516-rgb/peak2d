@@ -258,6 +258,37 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(op.some(o=>o.x<4||o.x+o.w>W-4||rects.some(q=>q!==rects[0]&&!q.side&&o.x<q.x+q.w+PW&&o.x+o.w>q.x-PW&&o.y-PH-4<q.y+q.h&&o.y+o.h>q.y)))continue;
    const n0=rects.length,keep=NAV.path;for(const o of op)rects.push(Object.assign(o,{ex:1,op:1}));navInit();const res=navSearch(nodeAt(rects[0],W/2-6));
    if(res.ok){NAV.path=res.path;done=1;break}rects.length=n0;navInit();NAV.path=keep}}}
+ // walk-off catch ledges (Round 16): every ledge edge is walked off in simulation (direction held / released at the edge); where the fall
+ // would exceed FALLMAX a small ledge is added ~10m below, under the simulated fall line (world edges included); repeated so new ledges are
+ // covered too. Each one is checked against the validated route by re-simulating every route jump near it; deterministic; final search guards.
+ if(NAV&&NAV.path){const FALLMAX=60,add=[];
+  const simFall=(sx,sy,dir,hold,D)=>{const L=rects.filter(r=>!r.side&&r.y>sy+PH-1&&r.y<sy+PH+D+2||r.side&&r.y<sy+PH+D&&r.y+r.h>sy);let x=sx,y=sy,vx=dir*AIRV*.9,vy=0,xd=null;
+   for(let i=0;i<240;i++){const ax=hold?dir:0;vx+=(ax*AIRV-vx)*Math.min(1,NAV_DT*(ax?5:6));vy=Math.min(900,vy+1000*NAV_DT);x+=vx*NAV_DT;x=Math.max(0,Math.min(W-PW,x));
+    for(const r of L)if(r.side&&x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y){x=vx>0?r.x-PW:r.x+r.w;vx=0}
+    const y1=y+vy*NAV_DT;for(const r of L)if(!r.side&&x<r.x+r.w&&x+PW>r.x&&y+PH<=r.y+.01&&y1+PH>=r.y)return{d:r.y-(sy+PH),x,xd};y=y1;if(xd===null&&y>=sy+40)xd=x;if(y-sy>D)return{d:1e9,x,xd}}return{d:1e9,x,xd}};
+  let st=nodeAt(rects[0],W/2-6);const RE=[];{let f=st;for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
+  {/* close thin gaps between a ledge and the world wall: a walk-off there is a straight drop along the wall */const ext=[];
+   for(const r of rects){if(r.side||r.peak||r===rects[0]||r.y>-PH-40)continue;
+    if(r.x>0&&r.x<PW+10){const g={x:0,y:r.y,w:r.x};if(!rects.some(q=>q!==r&&g.x-2<q.x+q.w&&g.w+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,r.w+r.x,0])}
+    const gr=W-(r.x+r.w);if(gr>0&&gr<PW+10){if(!rects.some(q=>q!==r&&r.x+r.w-2<q.x+q.w&&W+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,W-r.x,r.x])}}
+   for(const[r,,,w,x]of ext){r.x=x;r.w=w}
+   if(ext.length){navInit();const rr=navSearch(nodeAt(rects[0],W/2-6));if(rr&&rr.ok)NAV.path=rr.path;else{for(const[r,x,w]of ext){r.x=x;r.w=w}navInit()}}}
+  RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
+  const routeOK=c=>{for(const[f,e]of RE){if(c.y>f.y+PH+280||c.y+c.h<f.y-120||c.x>e.sx+260||c.x+c.w<e.sx-260)continue;
+   const L=rects.filter(r=>r.y<f.y+PH+280&&r.y+r.h>f.y-120);const l=simJump(e.sx,f.y,e.dir,e.rel,L,e.run);if(!l||l.r!==e.to.r)return 0}return 1};
+  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(RR.has(q)||q.camp?10+PH+6:10+PH+4)>q.y&&!(!RR.has(q)&&!q.camp&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
+  for(let pass=0;pass<3;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+   for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;/* edge against the world wall: nothing to walk off */
+    const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;
+    let ok=0;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(xs.length)for(const D of[40,46,34,52,58,28])for(const sh of[0,10,-10,20])for(const sn of[1,0]){if(ok)break;const x0=Math.max(0,Math.min(...xs)-8),x1=Math.min(W,Math.max(...xs)+PW+8),w=Math.max(40,x1-x0)+Math.abs(sh)*0,x2=Math.max(0,Math.min(W-w,(sd>0?x0:x1-w)+sd*sh)),xa=sn&&x2<PW+10?0:x2,wb=(sn&&x2+w>W-PW-10?W:x2+w)-xa,x=xa,y=r.y+D;
+     if(y>-PH-24||!free(x,y,wb))continue;const q={x,y,w:wb,h:10,ex:1,catch:3};rects.push(q);if(routeOK(q)){add.push(q);n++;ok=1}else rects.pop()}}
+   if(!n)break}
+  if(add.length){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));
+   for(let it=0;it<8&&!(res&&res.ok);it++){/* bisect for the first ledge that breaks the route, drop just that one, repeat */const live=add.filter(c=>rects.includes(c));const keep=rects.filter(q=>!live.includes(q));let lo=0,hi=live.length-1;
+    const tryN=m=>{rects.length=0;rects.push(...keep,...live.slice(0,m));navInit();const r=navSearch(nodeAt(rects[0],W/2-6));return r&&r.ok};
+    while(lo<hi){const m=(lo+hi)>>1;if(tryN(m+1))lo=m+1;else hi=m}rects.length=0;rects.push(...keep,...live.filter((c,i)=>i!==lo));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
+   if(!(res&&res.ok)){rects.splice(0,rects.length,...rects.filter(q=>!add.includes(q)))}
+   navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}
  if(!(NAV&&NAV.path)&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
