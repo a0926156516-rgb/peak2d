@@ -5,11 +5,33 @@
 <link rel="icon" href="data:,"><title>攀岩 — 2D 合作登山</title>
 <style>
 *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;background:#111;touch-action:none;font-family:system-ui,"PingFang TC","Noto Sans TC",sans-serif;color:#fff;overscroll-behavior:none}
+:root{--rf:"Arial Rounded MT Bold","Hiragino Maru Gothic ProN","M PLUS Rounded 1c","jf-openhuninn-2.0","Yuanti TC","Microsoft JhengHei UI",system-ui,"PingFang TC","Noto Sans TC",sans-serif}
+html,body{margin:0;height:100%;overflow:hidden;background:#111;touch-action:none;font-family:var(--rf);color:#fff;overscroll-behavior:none}
 canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
 .ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,20,35,.82);padding:20px;text-align:center;z-index:5;overflow:auto}
 .hide{display:none!important}
-h1{font-size:46px;margin:0;letter-spacing:6px;text-shadow:0 4px 0 #b4512a}
+h1{font-size:46px;margin:0;letter-spacing:6px;font-weight:900;text-shadow:0 4px 0 #b4512a}
+h2{font-weight:900;letter-spacing:2px}
+.ov.art{background:var(--artbg) center bottom/cover no-repeat,#16263a}
+#logo{width:min(300px,78vw);height:auto;display:block;margin:-6px 0 -4px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.25))}
+.howto{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:340px;width:100%;font-size:12.5px;text-align:left}
+.howto div{display:flex;gap:7px;align-items:center;background:rgba(10,20,35,.55);border-radius:12px;padding:6px 8px;line-height:1.25}
+.howto i{font-style:normal;font-size:22px;flex:none;width:26px;text-align:center}
+.howto .wide{grid-column:1/3;font-size:11px;opacity:.85;justify-content:center}
+.zh{grid-column:1/-1;text-align:left;font-weight:900;font-size:14px;padding:5px 10px;border-radius:10px;margin-top:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.lvb{min-width:0;width:58px;height:54px;padding:0;font-size:16px;line-height:1.05;position:relative;border-radius:12px;font-weight:900;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.lvb small{display:block;font-size:9px;font-weight:700}
+.lvb.lock{background:#2b3442;color:#9aa6b6;box-shadow:none;border:1px dashed #4a586c}
+.lvb.lock small{font-size:12px}
+.lvb .st{color:#fff3a0;letter-spacing:-1px;font-size:10px;text-shadow:0 1px 1px rgba(0,0,0,.6)}
+#rbadge{display:flex;flex-direction:column;align-items:center;background:linear-gradient(#ffd27a,#f2a33a);color:#2a1600;border-radius:20px;padding:6px 26px 8px;box-shadow:0 5px 0 #b4512a;cursor:pointer;min-width:220px}
+#rbadge small{font-size:12px;font-weight:800;opacity:.75}
+#rcode{font-size:54px;letter-spacing:12px;font-weight:900;line-height:1;margin-left:12px}
+#slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(340px,92vw)}
+.slot{background:rgba(10,20,35,.6);border-radius:14px;padding:6px;display:flex;align-items:center;gap:6px;border:3px solid rgba(255,255,255,.12);min-height:74px;text-align:left;font-size:13px}
+.slot canvas{position:static!important;display:block;width:44px!important;height:60px!important;pointer-events:none;flex:none;background:radial-gradient(circle at 50% 70%,rgba(255,255,255,.18),transparent 70%);border-radius:10px}
+.slot b{display:block;font-size:15px}
+.slot.empty{border-style:dashed;justify-content:center;opacity:.55}
 .sub{opacity:.8;margin:0 0 6px}
 button{font:inherit;font-size:18px;padding:12px 18px;border:0;border-radius:12px;background:#f2a33a;color:#2a1600;font-weight:700;min-width:200px;touch-action:manipulation}
 button.alt{background:#3d6b8c;color:#fff}
@@ -48,26 +70,38 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 </div>
 <button id="hintb" aria-label="提示">？</button>
 <button id="muteb" aria-label="靜音" style="position:fixed;right:calc(112px + env(safe-area-inset-right));bottom:calc(150px + env(safe-area-inset-bottom));width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.45);color:#fff;font-size:20px;z-index:5;padding:0;min-width:0">🔊</button>
-<div id="menu" class="ov">
- <h1>攀岩</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
+<div id="menu" class="ov art">
+ <svg id="logo" viewBox="0 0 300 120" aria-label="攀岩"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#f2a33a"/></linearGradient></defs>
+  <path d="M18 104 L78 26 L98 50 L118 30 L170 104z" fill="#8496bc"/><path d="M78 26 L66 42 L74 40 L80 46 L88 38 L98 50 L86 34z" fill="#f4f8ff"/><path d="M118 30 L110 41 L118 39 L126 44z" fill="#f4f8ff"/>
+  <path d="M60 104 Q96 70 112 104z" fill="#4f7a3a"/><path d="M10 104 H178 Q150 96 120 100 Q80 92 40 100 Q20 98 10 104z" fill="#efd49a"/>
+  <path d="M78 26 V6" stroke="#444" stroke-width="2.5"/><path d="M79 6 Q90 9 99 9 Q90 13 79 16z" fill="#e8433a"/>
+  <path d="M40 98 Q70 70 76 40" stroke="#ffd27a" stroke-width="2" fill="none" stroke-dasharray="4 3"/>
+  <g transform="translate(66 62)"><rect x="-3" y="-12" width="7" height="9" rx="2" fill="#2f8fd8"/><circle cx=".5" cy="-15" r="3.5" fill="#ffe0bd"/><path d="M-3 -18h7v-2.5h-7z" fill="#e8433a"/><rect x="-3" y="-3" width="2.5" height="5" fill="#334"/><rect x="1.5" y="-3" width="2.5" height="5" fill="#334"/><rect x="4" y="-14" width="5" height="2" fill="#ffe0bd" transform="rotate(-40 4 -14)"/></g>
+  <text x="236" y="72" text-anchor="middle" font-size="62" font-weight="900" fill="url(#lg)" stroke="#7a2e12" stroke-width="5" paint-order="stroke" letter-spacing="4" font-family="var(--rf)">攀岩</text>
+  <text x="236" y="98" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" opacity=".9" font-family="var(--rf)">2D 合作登山 · 最多 4 人</text></svg>
  <input id="nick" maxlength="8" placeholder="暱稱">
  <div id="pick"></div>
  <button id="bSolo">繼續 · 第1關</button><button id="bLvs" class="alt">選擇關卡</button>
  <button id="bHost" class="alt">建立房間</button>
  <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
  <div id="status"></div><button id="bRetry" class="alt hide">重試連線</button>
- <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充：<b style="color:#ff9a3c">橘色白點蘑菇</b>是好的（回血、體力全滿），<b style="color:#c06bff">紫色蘑菇有毒</b>（暈眩、扣體力），別吃！<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點，倒下後會在最後到達的營火重生。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓</div>
+ <div class="howto">
+  <div><i>🧗</i>按住「抓」貼牆攀爬，耗體力</div><div><i>⚡</i>站在地面回體力，跳躍免費</div>
+  <div><i>🍓</i>莓果止飢</div><div><i><svg width="22" height="20" viewBox="0 0 22 20"><path d="M3 11a8 8 0 0 1 16 0z" fill="#ff8a1c"/><circle cx="7" cy="8" r="1.6" fill="#fff"/><circle cx="11" cy="5" r="1.6" fill="#fff"/><circle cx="15" cy="8" r="1.6" fill="#fff"/><rect x="9" y="11" width="4" height="7" fill="#f6ecd6"/></svg></i>橘色蘑菇：回血</div>
+  <div><i><svg width="22" height="20" viewBox="0 0 22 20"><path d="M2 12L11 2l9 10z" fill="#9b30ff" stroke="#4b0f86"/><circle cx="8" cy="9" r="1.3" fill="#b6ff4a"/><circle cx="13" cy="7" r="1.3" fill="#b6ff4a"/><rect x="9" y="12" width="4" height="6" fill="#d9c6f0"/></svg></i><b style="color:#d9a6ff">紫色毒菇：扣⅓體力</b></div><div><i>🔥</i>營火＝存檔與重生點</div>
+  <div><i>🩹</i>摔太高會受傷</div><div><i>🌋</i>熔岩上漲，碰到扣½體力</div>
+  <div class="wide">⌨️ 方向鍵/WASD 移動 · 空白鍵 跳 · Shift/K 抓 · 「？」看提示</div></div>
 </div>
-<div id="room" class="ov hide">
- <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
- <button id="bCopy" class="alt">複製分享連結</button>
- <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul><div id="rpick"></div><div id="rlvw">關卡 <select id="rlv" style="font-size:16px;padding:4px"></select></div>
+<div id="room" class="ov art hide">
+ <div id="rbadge" title="點一下複製邀請碼"><small>房間邀請碼 · 點我複製</small><div id="rcode">-----</div></div>
+ <button id="bCopy" class="alt">🔗 複製分享連結</button>
+ <div id="pcount" style="font-weight:900">玩家 1/4</div><div id="slots"></div><ul id="plist" class="hide"></ul><div id="rpick"></div><div id="rlvw">關卡 <select id="rlv" style="font-size:16px;padding:4px"></select></div>
  <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
  <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
  <button id="bLeave" class="alt">離開</button>
 </div>
-<div id="lvs" class="ov hide">
- <h2 style="margin:0">選擇關卡</h2><div id="lvgrid" style="display:grid;grid-template-columns:repeat(5,52px);gap:6px;max-height:60vh;overflow:auto;padding:4px"></div>
+<div id="lvs" class="ov art hide">
+ <h2 style="margin:0">選擇關卡</h2><div id="lvgrid" style="display:grid;grid-template-columns:repeat(5,58px);gap:6px;max-height:68vh;overflow:auto;padding:4px 4px 10px;justify-content:center"></div>
  <button id="bLvBack" class="alt">返回</button>
 </div>
 <div id="end" class="ov hide">
@@ -76,6 +110,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 </div>
 <script>
 "use strict";
+addEventListener('DOMContentLoaded',()=>{try{artBg()}catch(_){}});
 // ---------- setup ----------
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
@@ -94,6 +129,7 @@ const BIOMES=[
  {n:'雪山',rock:'#8b98a8',edge:'#f4f8ff',sky:['#8aa6d4','#eef2fa'],mt:['#c9d4ea','#a6b6d6','#8496bc'],fog:'#f4f8ff'},
  {n:'火山',rock:'#4a3030',edge:'#8a4a32',sky:['#2e1620','#d8653a'],mt:['#6a3438','#4e2428','#331618'],fog:'#ff9a6a'}];
 const hx=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)),mix=(a,b,t)=>{const A=hx(a),B=hx(b);return`rgb(${A.map((v,i)=>v+(B[i]-v)*t|0)})`};
+function artBg(){const L=(c,pts)=>`<path d='M0 600 ${pts} L400 600Z' fill='${c}'/>`,B=BIOMES;const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 600' preserveAspectRatio='xMidYMax slice'><defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${B[2].sky[0]}'/><stop offset='.6' stop-color='${B[0].sky[0]}'/><stop offset='1' stop-color='${B[0].sky[1]}'/></linearGradient></defs><rect width='400' height='600' fill='url(#s)'/><circle cx='320' cy='120' r='34' fill='#fff6c8' opacity='.85'/>${L(B[2].mt[0],'L0 330 L70 250 L120 300 L190 170 L250 260 L300 220 L400 320')}<path d='M190 170 L172 200 L186 195 L196 206 L206 192 L214 198Z' fill='#f4f8ff'/>${L(B[1].mt[1],'L0 420 L60 360 L130 410 L200 340 L280 400 L340 350 L400 390')}${L(B[0].mt[2],'L0 480 L90 440 L170 470 L260 430 L330 465 L400 445')}${L(B[0].edge,'L0 540 Q100 520 200 535 T400 525')}<path d='M190 170 V140' stroke='#444' stroke-width='2'/><path d='M191 140 l16 5 l-16 5z' fill='#e8433a'/><rect width='400' height='600' fill='rgba(10,20,35,.38)'/></svg>`;document.documentElement.style.setProperty('--artbg',`url("data:image/svg+xml,${encodeURIComponent(svg)}")`)}
 const biomeAt=y=>Math.max(0,Math.min(NB-1,Math.floor(-y/BL)));
 // Character colors: swap hex values here. Order = colorIndex (server uses indexes 0..3).
 const COLORS=['#e8483b','#2f8fe0','#3fb85a','#f2b630'];
@@ -249,7 +285,9 @@ let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
 const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
 function toast(s){$('toast').textContent=s;toastT=2.5}
-let flashes=[];function flash(x,y,c){flashes.push({x,y,c,t:.45})}
+let flashes=[],floats=[],hurt=null,winPend=null;function flash(x,y,c){flashes.push({x,y,c,t:.45})}
+function floatTxt(x,y,txt,c){floats.push({x,y,txt,c,t:1.1})}
+function hurtFx(c){hurt={c,t:.35}}
 function puff(x,y,c,n,sp=80,sz){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*sp,vy:-Math.random()*sp,l:.6+Math.random()*.4,c,s:sz?sz*(.6+Math.random()*.8):0})}
 
 
@@ -297,15 +335,21 @@ function saveEaten(){if(net||window.BOT||!P||mode!=='play')return;const o=cps();
 function cleared(){return DEBUG?NLV:prog().c||0}
 function nextLv(){return Math.min(NLV,cleared()+1)}
 function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!g.b[lv]||t<g.b[lv])g.b[lv]=+t.toFixed(1);try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
-function renderLv(){const n=nextLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（營火 ${Math.max(0,-(C0.y+PH)/4)|0} m）`;$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
- $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;
-  e.style.cssText='min-width:0;width:52px;height:46px;padding:0;font-size:15px;line-height:1.1;'+(ok?'':'opacity:.35');
-  const cq=ok&&cpMeta(i);e.style.position='relative';e.innerHTML=i+(cq?`<br><small style="font-size:9px">🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?`<br><small style="font-size:9px">${fmt(b[i])}</small>`:'');
+// level chapters (by difficulty) coloured by zone; stars from best time vs a par that grows with level height
+function lvChapter(i){const C=[[1,12,0],[13,25,1],[26,38,2],[39,50,3]];const c=C.find(c=>i<=c[1]);return{a:c[0],b:c[1],z:c[2]}}
+function stars(i,t){const par=45+2.2*i;return t<=par*1.4?3:t<=par*2.2?2:1}
+function contLv(){const l=prog().l;return l>=1&&l<=nextLv()?l:nextLv()}
+function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（營火 ${Math.max(0,-(C0.y+PH)/4)|0} m）`;$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
+ $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const ch=lvChapter(i);if(i===ch.a){const h=document.createElement('div');h.className='zh';h.style.background=`linear-gradient(90deg,${BIOMES[ch.z].rock},${BIOMES[ch.z].edge}aa)`;h.textContent=`${['🏖️','🌴','🏔️','🌋'][ch.z]} ${BIOMES[ch.z].n}篇 · 第${ch.a}–${ch.b}關`;$('lvgrid').appendChild(h)}
+  const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
+  if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
+  const cq=ok&&cpMeta(i);const sr=b[i]?stars(i,b[i]):0;
+  e.innerHTML=ok?i+(cq?`<small>🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?`<small class="st">${'★'.repeat(sr)}${'☆'.repeat(3-sr)}</small><small>${fmt(b[i]).replace('分',':').replace('秒','')}</small>`:'<small>新！</small>'):`${i}<small>🔒</small>`;
   e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};
-  if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:1px;top:0;font-size:12px;padding:0 3px;background:rgba(0,0,0,.35);border-radius:4px';z.onclick=ev=>{ev.stopPropagation();const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
+  if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:-6px;top:-8px;font-size:17px;line-height:26px;width:26px;height:26px;text-align:center;background:#c0392b;color:#fff;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 3px rgba(0,0,0,.4)';z.onclick=ev=>{ev.stopPropagation();if(!confirm(`第${i}關：清除營火存檔，從頭開始？`))return;const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
   $('lvgrid').appendChild(e)}
  const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n)}}
-function startGame(s){
+function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){const g=prog();g.l=s;try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
  seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
  if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-36,36,-72],x0=P.x;
@@ -322,7 +366,10 @@ function saveCP(){if(net||window.BOT)return;const o=cps();o[LV]={lv:LV,x:checkpo
 function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
-function win(name,time){if(mode!=='play')return;mode='end';clearCP(LV);auMusic(false);sfx('win');$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
+// summit: hold 1.8 s on the flag/cairn with confetti before the win screen covers it
+function winSoon(name,time){if(mode!=='play'||winPend)return;if(window.BOT){win(name,time);return}winPend={name,time};const lv=LV;toast(`🎉 ${name} 登頂！`);sfx('win');let k=0;const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y;const iv=setInterval(()=>{if(mode!=='play'||LV!==lv){clearInterval(iv);return}for(const c of ['#ff4d4d','#ffd23a','#4dc3ff','#7dff6a','#ff7ae0'])puff(fx+(Math.random()-.5)*80,fy-40-Math.random()*30,c,3,140,3);if(++k>=9)clearInterval(iv)},200);
+ setTimeout(()=>{if(winPend&&LV===lv){winPend=null;win(name,time)}},window.BOT?0:1800)}
+function win(name,time){if(mode!=='play')return;winPend=null;mode='end';clearCP(LV);auMusic(false);$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
  $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
  $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);if(net&&!isHost)$('einfo').innerHTML+=`<br><span id="gwait" style="opacity:.85">等房主按下一關…</span>`;$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
@@ -334,7 +381,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  const b=biomeAt(P.y);
  // hunger & cold
  P.hun=Math.min(45,P.hun+dt*(.012+.06*DIFF+.2*DIFF*DIFF));
- const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
+ const nearCamp=P.ground?camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<3&&(()=>{const r=hit(P.x,P.y+PH,PW,2);return r&&c.x>=r.x-4&&c.x<=r.x+r.w+4})()):null;
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
  if(nearCamp&&P.camp!==nearCamp.k&&nearCamp.y-PH-1<checkpoint.y-1){sfx('camp');flash(nearCamp.x,nearCamp.y-8,'#ffc040');puff(nearCamp.x,nearCamp.y-8,'#ffcf5a',14,90,3);P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
  if(P.y<bestY-10){bestY=P.y;progT=elapsed}
@@ -369,15 +416,18 @@ function update(dt){try{auSteps(dt)}catch(_){}
  // lava
  if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+250;toast('熔岩開始上漲！快爬！')}
  if(lavaOn&&(!net||isHost))lava-=dt*(5+DIFF*5);
- if(P.y+PH>lava+4){down();P.downT=Math.min(P.downT,1.5)}
- if(P.ground&&P.y+PH<=TOP+1){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});win(myName,t)}
+ if(P.invT>0)P.invT-=dt;
+ if(!P.down&&P.y+PH>lava+4){if(!(P.invT>0)){const ms=maxS(P),d=Math.round(ms/2);const out=P.stam<=0;P.stam=Math.max(0,P.stam-d);floatTxt(P.x+6,P.y-6,`-${d} 體力`,'#ff5040');flash(P.x+6,P.y+PH,'#ff3010');hurtFx('#ff2a00');shake=.35;puff(P.x+6,P.y+PH,'#ff8a2a',14);sfx('step');
+   if(out||P.stam<=0){down();P.downT=Math.min(P.downT,1.5)}else{P.invT=1.2;P.cling=0;P.vy=-470;P.vx=(P.x+6<W/2?1:-1)*120;toast('燙！被熔岩彈開，體力大減！')}}
+  else if(P.vy>-300)P.vy=-420}
+ if(P.ground&&P.y+PH<=TOP+1&&!winPend){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});winSoon(myName,t)}
 }
 function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;const r=hit(P.x,P.y,PW,PH);if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true;if(!wg&&v0>160&&!window.BOT){P.lt=performance.now()/1000;P.lp=Math.min(1,v0/600);const bi=biomeAt(r.y),dc=bi===0?'#e9cf98':bi===2?'#ffffff':bi===1?'#b8a67a':'#8a6a5a';puff(P.x+6,P.y+PH,dc,6+P.lp*10|0,90+P.lp*80,2.5+P.lp*2)}}else P.y=r.y+r.h;P.vy=0}}
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;flash(f.x,f.y,f.k==='berry'?'#ff6a80':'#fff2c0');
  if(mine){sfx('pick');
   if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
   else if(f.k==='mush'){P.inj=Math.max(0,P.inj-20);P.hun=Math.max(0,P.hun-10);P.stam=maxS(P);toast('橘色好蘑菇！傷勢恢復、體力全滿');puff(f.x,f.y,'#6f6',10)}
-  else{P.inj=Math.min(60,P.inj+6+6*DIFF);P.stam*=.8;toast('紫色毒蘑菇！有點暈…紫色的別吃');puff(f.x,f.y,'#a4f',10)}
+  else{const d=Math.round(maxS(P)/3);P.inj=Math.min(60,P.inj+4+4*DIFF);P.stam=Math.max(0,P.stam-d);floatTxt(P.x+6,P.y-6,`-${d} 體力`,'#d9a6ff');flash(f.x,f.y,'#a040ff');hurtFx('#8a2be2');toast('紫色毒蘑菇！體力流失…紫色的別吃');puff(f.x,f.y,'#a4f',12)}
   saveEaten();
   if(net)send({t:'eat',id});
  }}
@@ -442,13 +492,15 @@ function render(dt){
   for(let i=0;i<3;i++){ctx.fillStyle=['#ff4a1c','#ff9a1c','#ffe14a'][i];const h=14-i*4+Math.sin(tt*12+i)*2;ctx.beginPath();ctx.moveTo(c.x-6+i*2,c.y-4);ctx.lineTo(c.x,c.y-4-h);ctx.lineTo(c.x+6-i*2,c.y-4);ctx.fill()}}
  for(const f of foods){if(eaten.has(f.id)||f.y<y0||f.y>y1)continue;{const pg=.6+.4*Math.sin(tt*4+f.id),gl=ctx.createRadialGradient(f.x,f.y+1,0,f.x,f.y+1,13);gl.addColorStop(0,f.k==='berry'?`rgba(255,90,110,${.5*pg})`:f.k==='pois'?`rgba(170,60,255,${.5*pg})`:`rgba(255,160,60,${.45*pg})`);gl.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=gl;ctx.fillRect(f.x-14,f.y-13,28,28)}
   if(f.k==='berry'){ctx.fillStyle='#d6243a';for(const[a,c]of[[-3,0],[3,0],[0,-4]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c+2,3,0,7);ctx.fill()}}
-  else if(f.k==='mush'){ctx.fillStyle='#f6ecd6';ctx.fillRect(f.x-2,f.y,4,7);ctx.fillStyle='#ff8a1c';ctx.beginPath();ctx.arc(f.x,f.y+1,7,Math.PI,0);ctx.fill();ctx.fillStyle='#fff';for(const[a,c]of[[-4,-1],[0,-4],[4,-1]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.4,0,7);ctx.fill()}}
-  else{ctx.fillStyle='#d9c6f0';ctx.fillRect(f.x-2,f.y,4,7);ctx.fillStyle='#9b30ff';ctx.beginPath();ctx.moveTo(f.x-8,f.y+1);ctx.lineTo(f.x,f.y-8);ctx.lineTo(f.x+8,f.y+1);ctx.fill();ctx.strokeStyle='#4b0f86';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#b6ff4a';for(const[a,c]of[[-3,-1],[2,-3],[3,0]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.2,0,7);ctx.fill()}}}
+  else if(f.k==='mush'){ctx.fillStyle='#f6ecd6';ctx.fillRect(f.x-2,f.y,4,7);ctx.strokeStyle='#5a2a00';ctx.lineWidth=2;ctx.strokeRect(f.x-2,f.y,4,7);ctx.fillStyle='#ff8a1c';ctx.beginPath();ctx.arc(f.x,f.y+1,7,Math.PI,0);ctx.closePath();ctx.lineWidth=2.5;ctx.stroke();ctx.fill();ctx.fillStyle='#fff';for(const[a,c]of[[-4,-1],[0,-4],[4,-1]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.4,0,7);ctx.fill()}}
+  else{ctx.strokeStyle='#2a0650';ctx.lineWidth=2;ctx.strokeRect(f.x-2,f.y,4,7);ctx.fillStyle='#d9c6f0';ctx.fillRect(f.x-2,f.y,4,7);ctx.fillStyle='#9b30ff';ctx.beginPath();ctx.moveTo(f.x-8,f.y+1);ctx.lineTo(f.x,f.y-8);ctx.lineTo(f.x+8,f.y+1);ctx.closePath();ctx.strokeStyle='#2a0650';ctx.lineWidth=2.5;ctx.stroke();ctx.fill();ctx.fillStyle='#b6ff4a';for(const[a,c]of[[-3,-1],[2,-3],[3,0]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c,1.2,0,7);ctx.fill()}}}
  if(lava<y1){ctx.fillStyle='#ff5a1a';ctx.fillRect(-60,lava,W+120,y1-lava+50);ctx.fillStyle='#ffc23a';for(let x=0;x<W;x+=20)ctx.fillRect(x,lava+Math.sin(tt*3+x)*2,10,3)}
  for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.g,r.ci,r.f,ANIMS[r.a]||(r.c?'climb':'idle'),r.d,nameOf(id,r.n))}
  drawP(P.x,P.y,myGender,myCI,P.face,animOf(P),P.down,net?myName:'',1);
  for(const p of parts){ctx.globalAlpha=Math.max(0,Math.min(1,p.l*1.5));ctx.fillStyle=p.c;const z=p.s||2.5;ctx.fillRect(p.x-z/2,p.y-z/2,z,z)}ctx.globalAlpha=1;
  for(const F of flashes){const k=F.t/.45,rad=8+28*(1-k);ctx.globalAlpha=Math.max(0,k);ctx.strokeStyle=F.c;ctx.lineWidth=2.5*k+.5;ctx.beginPath();ctx.arc(F.x,F.y,rad,0,7);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(F.x,F.y,rad*.45,0,7);ctx.fill()}ctx.globalAlpha=1;
+ for(const F of floats){ctx.globalAlpha=Math.min(1,F.t*2);ctx.font='900 13px sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.75)';ctx.strokeText(F.txt,F.x,F.y);ctx.fillStyle=F.c;ctx.fillText(F.txt,F.x,F.y)}ctx.globalAlpha=1;
+ if(hurt){ctx.globalAlpha=Math.min(.45,hurt.t*1.3);ctx.fillStyle=hurt.c;ctx.fillRect(-2000,camY-2000,6000,6000);ctx.globalAlpha=1}
  if(b===2){ctx.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<40;i++){const x=(i*97+tt*20*(1+i%3))%W,y=camY+((i*53+tt*40*(1+i%2))%vh);ctx.fillRect(x,y,2,2)}}
  if(hint){const pu=.5+.5*Math.sin(tt*6);ctx.strokeStyle=`rgba(255,240,80,${.5+pu*.5})`;ctx.lineWidth=1;rrect(hint.r.x-1.5,hint.r.y-1.5,hint.r.w+3,Math.min(hint.r.h,hint.wall?hint.r.h:14)+3,5);ctx.stroke();
   hintPhase();if(hint.mx!=null&&(hint.walk||hint.e&&hint.e.run)){ctx.fillStyle=`rgba(255,233,74,${.6+pu*.4})`;const yy=hint.gy;ctx.fillRect(hint.mx-1,yy-26,2,26);ctx.beginPath();ctx.moveTo(hint.mx-6,yy-26);ctx.lineTo(hint.mx+6,yy-26);ctx.lineTo(hint.mx,yy-18);ctx.fill()}
@@ -464,7 +516,7 @@ const TEX={};function texOf(b){if(TEX[b])return TEX[b];const B=BIOMES[b],c=docum
  for(let i=0;i<(b===0?60:22);i++){g.fillStyle=r()<.5?'rgba(0,0,0,.13)':'rgba(255,255,255,.16)';const z=b===0?1:2+r()*3;g.fillRect(r()*24|0,r()*24|0,z,b===0?1:z*.6)}
  const gc=document.createElement('canvas');gc.width=gc.height=24;const q=gc.getContext('2d');q.fillStyle='#e6c88a';q.fillRect(0,0,24,24);for(let i=0;i<70;i++){q.fillStyle=r()<.5?'rgba(150,110,50,.25)':'rgba(255,255,255,.3)';q.fillRect(r()*24|0,r()*24|0,1,1)}
  const pat=x=>ctx.createPattern(x,'repeat');return TEX[b]={rock:pat(c),ground:pat(gc),side:'rgba(0,0,0,.28)'}}
-let nameT0=0;const VS=()=>CW<520?1.85:1.2;let bannerZ=0,bannerT=0;
+let nameT0=0;const VS=()=>CW<520?2.25:1.2;let bannerZ=0,bannerT=0;
 function drawP(x,y,g,ci,f,an,dn,name,me){
  const t=performance.now()/1000,low=me&&!dn&&P.stam<maxS(P)*.2,sc=VS();
  let qx=1,qy=1,rot=0,bob=0;const fc=f||1;
@@ -496,7 +548,7 @@ function hud(){
  for(let b2=0;b2<NB;b2++){const a0=fr(-b2*BL),a1=fr(-(b2+1)*BL);ctx.fillStyle=BIOMES[b2].edge;ctx.fillRect(rx-2,ry1-a1*H,4,(a1-a0)*H)}
  for(const c of camps){const yy=ry1-fr(c.y)*H;ctx.fillStyle='#ff9a1c';ctx.fillRect(rx-6,yy-1,12,2)}
  if(lavaOn&&lava<1e8){const ly=ry1-fr(lava)*H;ctx.fillStyle='rgba(255,80,20,.85)';ctx.fillRect(rx-4,ly,8,ry1-ly);ctx.fillStyle='#ffc23a';ctx.fillRect(rx-8,ly-1.5,16,3);
-  const gap=Math.max(0,(lava-(P.y+PH))/4)|0,dg=gap<15,pu=dg?.8+.2*Math.sin(performance.now()/100):1;ctx.globalAlpha=pu;ctx.fillStyle=dg?'rgba(200,30,10,.9)':'rgba(120,30,10,.75)';rrect(CW/2-78,CH-262,156,22,8);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText(`🌋 熔岩在你下方 ${gap} m`,CW/2,CH-246);ctx.globalAlpha=1}
+  const gap=Math.max(0,(lava-(P.y+PH))/4)|0,dg=gap<15,pu=dg?.8+.2*Math.sin(performance.now()/100):1;ctx.globalAlpha=pu;ctx.fillStyle=dg?'rgba(200,30,10,.9)':'rgba(120,30,10,.75)';rrect(CW/2-110,CH-268,220,30,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 18px sans-serif';ctx.textAlign='center';ctx.fillText(`🌋 熔岩在你下方 ${gap} m`,CW/2,CH-246);ctx.globalAlpha=1}
  ctx.fillStyle='#fff';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('🏁',rx,ry0-8);
  for(const id in remotes){const r=remotes[id];ctx.fillStyle=COLORS[r.ci]||'#888';ctx.beginPath();ctx.arc(rx,ry1-fr(r.dy+PH)*H,4,0,7);ctx.fill()}
  const py=ry1-fr(P.y+PH)*H;ctx.fillStyle=COLORS[myCI]||'#fff';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(rx,py,6,0,7);ctx.fill();ctx.stroke();
@@ -522,7 +574,7 @@ function loop(now,fb){if(!fb){requestAnimationFrame(loop);lastRAF=performance.no
  const dt=Math.max(0,Math.min(.033,(now-last)/1000));last=now;
  if(mode==='play'&&P){if(![P.x,P.y,P.vx,P.vy].every(Number.isFinite)){console.warn('bad player state, reset');Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0})}if(!window.BOT)try{update(dt)}catch(e){console.error('update',e)}}
  for(const k in K)prev[k]=K[k];
- for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.ng?-20:300)*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);for(const F of flashes)F.t-=dt;flashes=flashes.filter(F=>F.t>0);
+ for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.ng?-20:300)*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);for(const F of flashes)F.t-=dt;flashes=flashes.filter(F=>F.t>0);for(const F of floats){F.t-=dt;F.y-=28*dt}floats=floats.filter(F=>F.t>0);if(hurt){hurt.t-=dt;if(hurt.t<=0)hurt=null}
  for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
  shake-=dt;if(toastT>0&&(toastT-=dt)<=0)$('toast').textContent='';
  if(net&&mode==='play'&&(netT+=dt)>.055){netT=0;netTick()}
@@ -557,6 +609,8 @@ function showLobby(pl){lobbyList=uniqNames(pl.map(p=>({...p,ci:p.ci??p.c??COLORS
  $('plist').innerHTML=lobbyList.map(p=>`<li style="border-left:6px solid ${COLORS[p.ci]}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[p.ci]};vertical-align:-1px"></span> ${gSym(p.g)} ${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
  for(const p of lobbyList)if(p.id===myId){myCI=p.ci;if(p.g)myGender=p.g;saveChar()}
  if(isHost&&serverRoster){for(const p of lobbyList)if(lobby[p.id])Object.assign(lobby[p.id],{g:p.g,ci:p.ci,col:COLORS[p.ci]})}
+ const sl=$('slots');if(sl){let h='';for(let k=0;k<4;k++){const p=lobbyList[k];h+=p?`<div class="slot" style="border-color:${COLORS[p.ci]}"><canvas class="av" data-g="${p.g||'m'}" data-c="${p.ci}" width="88" height="120"></canvas><div><b>${esc(p.n)}</b>${p.h?'👑 房主':'隊員'}${p.id===myId?' · 你':''}</div></div>`:`<div class="slot empty">＋ 等待加入…</div>`}sl.innerHTML=h;
+  sl.querySelectorAll('canvas.av').forEach(c=>{const x=c.getContext('2d'),k=5;x.translate(c.width/2,c.height-8);x.scale(k,k);try{drawCharacter(x,c.dataset.g,+c.dataset.c,'idle',0,1)}catch(_){}})}
  renderPickers()}
 function renderPickers(){
  const taken={};if(mode==='room')for(const p of lobbyList)if(p.id!==myId)taken[p.ci]=p.n;
@@ -614,7 +668,7 @@ function hostHandle(from,d,self,c){
   if(d.c!=null&&!Object.entries(lobby).some(([id,v])=>id!==from&&v.ci===d.c)&&d.c>=0&&d.c<COLORS.length){L.ci=d.c;L.col=COLORS[d.c]}bcLobby();
  }else if(d.t==='st'){const L=lobbyList.find(p=>p.id===from)||lobby[from];if(L)remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:L.n,g:L.g,ci:L.ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
- else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
+ else if(d.t==='win'){for(const id in conns)conns[id].send(d);winSoon(d.n,d.tm)}
 }
 let pendingSnap=new Set();
 // mid-game join: send full snapshot once host is standing (not respawning)
@@ -663,7 +717,8 @@ function clientHandle(d){
   for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
   for(const id in remotes)if(!d.ps[id])delete remotes[id]}
  else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
- else if(d.t==='win')win(d.n,d.tm);
+ else if(d.t==='win')winSoon(d.n,d.tm);
+ else if(d.t==='tp'){if(mode==='play')dbgTeleport(d.m,1)}
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
@@ -675,7 +730,7 @@ function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||next
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
 renderPickers();
 const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.replace(/\D/g,'').slice(0,4);st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
-$('bSolo').onclick=()=>{getNick();net=false;startGame(nextLv())};
+$('bSolo').onclick=()=>{getNick();net=false;startGame(contLv())};
 $('bLvs').onclick=()=>{renderLv();$('menu').classList.add('hide');$('lvs').classList.remove('hide')};
 $('bLvBack').onclick=()=>{$('lvs').classList.add('hide');$('menu').classList.remove('hide')};
 $('bNext').onclick=()=>{const n=Math.min(NLV,LV+1);if(net&&isHost)hostStart(n);else if(!net)startGame(n)};
@@ -689,17 +744,19 @@ $('bStart').onclick=()=>hostStart();
 $('muteb').onclick=e=>{e.stopPropagation();auSetMute(!AU.muted)};auSetMute(AU.muted);
 document.addEventListener('click',e=>{if(e.target.closest('button,.sw,.gb')&&e.target.id!=='muteb')setTimeout(()=>sfx('click'),0)});
 $('bLeave').onclick=()=>leave();
+$('rbadge').onclick=async()=>{try{await navigator.clipboard.writeText(roomCode);st('已複製邀請碼 '+roomCode)}catch(_){prompt('邀請碼',roomCode)}const r=$('rbadge');r.style.transform='scale(.95)';setTimeout(()=>r.style.transform='',150)};
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
 $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)};
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
-function dbgTeleport(m){if(!P||mode!=='play')return;const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
- if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2,y:n.y,vx:0,vy:0,down:false});checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
+function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m});const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
+ if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2-PW/2,y:n.y,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
 function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
-if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:72px;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
- d.innerHTML='DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:10px;opacity:.8"></div>';
+if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
+ d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:10px;opacity:.8"></div></span>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0');
+ {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
  $('dInf').onchange=e=>{DBG_INF=e.target.checked};
