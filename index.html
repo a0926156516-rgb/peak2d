@@ -53,8 +53,8 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #ctl.hide~#hintb{display:none}
 #dbg input,#dbg button{font-size:12px!important;padding:2px 5px!important;min-width:0!important;border-radius:5px;height:24px}#dbg input[type=checkbox]{width:16px;height:16px}
 small.cpb{display:block;font-size:12px!important;padding:1px 6px!important;width:fit-content;margin-left:auto;margin-right:auto;background:linear-gradient(#ff8a2a,#d9420f);color:#fff!important;border-radius:8px;padding:0 5px;margin-top:1px;font-weight:800;box-shadow:0 0 0 1.5px #fff8,0 0 6px #ff7a1a;text-shadow:0 1px 1px #0006}
-@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}#toast.tin{animation:tin .25s ease-out}
-#toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
+@keyframes tin{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}#toast.tin{animation:tin .25s ease-out}
+#toast{position:fixed;top:158px;min-height:26px;line-height:26px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 .cp{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0}
 .cp .gb{min-width:84px;padding:6px 10px;line-height:1.2;font-size:16px;background:#3d6b8c;color:#fff;border:2px solid transparent}
 .cp .gb.sel{background:#f2a33a;color:#2a1600;border-color:#fff}
@@ -438,14 +438,14 @@ function update(dt){try{auSteps(dt)}catch(_){}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
   P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:6));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,r0:fr,x1:null}}puff(P.x+6,P.y+PH,'#eee',5)}
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,r0:fr,x1:null,mx:0}}puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
  P.stam=Math.max(0,Math.min(P.stam,MS));if(DBG_INF){P.stam=MS;P.hun=0;P.cold=0}
- P.x+=P.vx*dt;const rx=hit(P.x,P.y,PW,PH);if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
- if(P.jh&&!K.jump){if(P.vy<-320)P.vy=-320;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
- const vy=P.vy;moveY(dt);
+ P.x+=P.vx*dt;let rx=hit(P.x,P.y,PW,PH);if(rx&&!window.BOT&&!P.cling&&!K.grab){const dn=rx.y+rx.h-P.y;if(dn>0&&dn<=5&&!hit(P.x,rx.y+rx.h+.01,PW,PH)){P.y=rx.y+rx.h+.01;rx=null}}/* head snag: slide under a ledge corner */if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
+ if(P.jh&&!K.jump){if(P.vy<-220)P.vy=-220;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
+ const vy=P.vy;moveY(dt);if(JLOG&&JLOG.x1==null)JLOG.mx=Math.max(JLOG.mx,Math.abs(P.x-JLOG.x0));
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
  // food
  if(P.tpG>0)P.tpG-=dt;else for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
@@ -458,8 +458,8 @@ function update(dt){try{auSteps(dt)}catch(_){}
   else if(P.vy>-300)P.vy=-420}
  if(P.ground&&P.y+PH<=TOP+1&&!winPend){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});winSoon(myName,t)}
 }
-function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;let r=hit(P.x,P.y,PW,PH);if(!r&&P.vy>0&&!P.cling&&!P.down&&!window.BOT){const f0=P.y-P.vy*dt+PH,f1=P.y+PH;for(const q of rects){if(q.side||f0>q.y+.5||f1<q.y)continue;const gl=q.x-(P.x+PW),gr=P.x-(q.x+q.w);let nx=null;if(gl>-.01&&gl<=9)nx=q.x-PW+3;else if(gr>-.01&&gr<=9)nx=q.x+q.w-3;if(nx!=null&&!hit(nx,q.y-PH-.01,PW,PH)){P.x=nx;P.y=q.y-PH-.01;r=q;break}}}/* edge assist: nudge onto a ledge missed by <=9px */
- if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true;if(DEBUG&&JLOG&&JLOG.x1==null&&!wg){JLOG.x1=P.x;JLOG.np=r!==JLOG.r0}if(!wg&&v0>160&&!window.BOT){P.lt=performance.now()/1000;P.lp=Math.min(1,v0/600);const bi=biomeAt(r.y),dc=bi===0?'#e9cf98':bi===2?'#ffffff':bi===1?'#b8a67a':'#8a6a5a';puff(P.x+6,P.y+PH,dc,6+P.lp*10|0,90+P.lp*80,2.5+P.lp*2)}}else P.y=r.y+r.h;P.vy=0}}
+function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;let r=hit(P.x,P.y,PW,PH);let ea=0;if(!r&&P.vy>0&&!P.cling&&!P.down&&!K.grab&&!K.down&&!window.BOT){const f0=P.y-P.vy*dt+PH,f1=P.y+PH;for(const q of rects){if(q.side||f0>q.y+.5||f1<q.y)continue;const gl=q.x-(P.x+PW),gr=P.x-(q.x+q.w);let nx=null;if(gl>-.01&&gl<=9)nx=q.x-PW+3;else if(gr>-.01&&gr<=9)nx=q.x+q.w-3;if(nx!=null&&!hit(nx,q.y-PH-.01,PW,PH)){P.x=nx;P.y=q.y-PH-.01;r=q;ea=1;break}}}/* edge assist: nudge onto a ledge missed by <=9px */
+ if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true;if(DEBUG&&JLOG&&JLOG.x1==null&&!wg){JLOG.x1=P.x;JLOG.np=r!==JLOG.r0;JLOG.r1=r}if(!wg&&!window.BOT&&!P.cling){/* settle: keep sprite feet on the rock, a few px inside the edge */const c=P.x+6,lo=r.x+4,hi=r.x+r.w-4;const nx=lo>hi?null:c<lo?lo-6:c>hi?hi-6:null;if(nx!=null&&!hit(nx,P.y,PW,PH)){P.x=nx;ea=1}if(ea){const bi=biomeAt(r.y);puff(P.x+6,P.y+PH,bi===2?'#e8eef8':bi===3?'#7a5a4a':'#a88c62',6,60,1.6)}}if(!wg&&v0>160&&!window.BOT){P.lt=performance.now()/1000;P.lp=Math.min(1,v0/600);const bi=biomeAt(r.y),dc=bi===0?'#e9cf98':bi===2?'#ffffff':bi===1?'#b8a67a':'#8a6a5a';puff(P.x+6,P.y+PH,dc,6+P.lp*10|0,90+P.lp*80,2.5+P.lp*2)}}else{const ol=P.x+PW-r.x,orr=r.x+r.w-P.x;if(!window.BOT&&!P.cling&&(ol<=4||orr<=4)){const nx=ol<=4?r.x-PW-.01:r.x+r.w+.01;if(!hit(nx,P.y,PW,PH)){P.x=nx;return}}/* corner slide */P.y=r.y+r.h}P.vy=0}}
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;flash(f.x,f.y,f.k==='berry'?'#ff6a80':'#fff2c0');
  if(mine){sfx('pick');
   if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
@@ -471,6 +471,8 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 
 
 // ---------- hint ----------
+/* fixed UI lanes: hint row at HY (26px), toast lane directly below it at TOPY; never overlap */
+let HY=124,TOPY=158;function layoutLanes(){let h=124;if(net&&roomB)h=Math.max(h,roomB+8);const d=$('dbg');if(d){const r=d.getBoundingClientRect();if(r.height&&r.width&&r.right>CW/2-150)h=Math.max(h,Math.ceil(r.bottom)+6)}HY=h;const t=h+26+8;if(t!==TOPY||!layoutLanes.f){TOPY=t;layoutLanes.f=1;const te=$('toast');if(te)te.style.top=t+'px'}}
 let dbgPI=-1,JLOG=null,hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
 function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
@@ -575,6 +577,7 @@ function drawP(x,y,g,ci,f,an,dn,name,me){
  const na=Math.max(0,Math.min(1,4-(t-nameT0)));y-=PH*(sc-1);
  if(name&&na>0){ctx.globalAlpha=na;ctx.font='bold 12px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+8,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-22,tw,15,4):ctx.rect(cx-tw/2,y-22,tw,15);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-10.5);ctx.globalAlpha=1}
 }
+ try{layoutLanes()}catch(_){}
 function hud(dt=0){{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=$('toast'),tt=te?te.getBoundingClientRect().top:175;mileY=Math.max(CH*.3,(tt-cr.top+96)*sc)}
  ctx.setTransform(DPR,0,0,DPR,0,0);
  const t=performance.now()/1000,bw=Math.min(260,CW-96),x=12,y=12,MS=maxS(P),low=P.stam<MS*.2,fl=low&&Math.sin(t*14)>0;
@@ -602,14 +605,12 @@ function hud(dt=0){{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=
  ctx.textAlign='right';ctx.font='bold 13px sans-serif';ctx.fillStyle='#fff';ctx.fillText(`${alt}m`,rx-10,py+4);
  ctx.font='bold 12px sans-serif';ctx.fillText(`${alt} / ${-TOP/4|0} m · ${fmt(elapsed)}`,CW-8,ry1+22);
  ctx.globalAlpha=1;
- if(bannerT>0){const a=Math.min(1,bannerT*2,(2.8-bannerT)*3),Bz=BIOMES[bannerZ],yb=Math.max(118,CH*.17);ctx.globalAlpha=a;const bg=ctx.createLinearGradient(0,0,CW,0);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(.5,'rgba(10,16,28,.7)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,yb-30,CW,56);ctx.fillStyle=Bz.edge;ctx.fillRect(CW*.2,yb-30,CW*.6,2);ctx.fillRect(CW*.2,yb+24,CW*.6,2);ctx.textAlign='center';ctx.font='900 28px sans-serif';ctx.fillStyle='#fff';ctx.shadowColor=Bz.rock;ctx.shadowBlur=10;ctx.fillText('進入'+Bz.n,CW/2,yb+8);ctx.shadowBlur=0;ctx.globalAlpha=1}
+ if(bannerT>0){const a=Math.min(1,bannerT*2,(2.8-bannerT)*3),Bz=BIOMES[bannerZ],yb=TOPY+30;ctx.globalAlpha=a;const bg=ctx.createLinearGradient(0,0,CW,0);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(.5,'rgba(10,16,28,.7)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,yb-30,CW,56);ctx.fillStyle=Bz.edge;ctx.fillRect(CW*.2,yb-30,CW*.6,2);ctx.fillRect(CW*.2,yb+24,CW*.6,2);ctx.textAlign='center';ctx.font='900 28px sans-serif';ctx.fillStyle='#fff';ctx.shadowColor=Bz.rock;ctx.shadowBlur=10;ctx.fillText('進入'+Bz.n,CW/2,yb+8);ctx.shadowBlur=0;ctx.globalAlpha=1}
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(mileT>0&&mode==='play'&&!winPend){mileT-=dt;ctx.save();ctx.globalAlpha=Math.min(1,mileT*2);ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.55)';const my=mileY-(1.8-mileT)*14;ctx.strokeText(mileTxt,CW/2,my);ctx.fillStyle='#ffe25a';ctx.fillText(mileTxt,CW/2,my);ctx.restore()}
  if(hint&&mode==='play'&&!winPend){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
-  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';const gp=innerWidth<520?14:6;let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124+(gp-6),net?roomB+gp+2:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);const box=[];for(const id of['toast','dbg']){const el=$(id);if(!el)continue;const r=el.getBoundingClientRect();if(id==='toast'){/* fixed toast lane: reserved even when empty so a toast arriving later never covers the hint */const lh=Math.max(r.height,26);box.push([0,(r.top-cr.top)*sc-4,CW,(r.top-cr.top+lh)*sc+2]);continue}if(!r.height||!r.width)continue;box.push([(r.left-cr.left)*sc,(r.top-cr.top)*sc,(r.right-cr.left)*sc,(r.bottom-cr.top)*sc])}
-  if(mileT>0)box.push([0,mileY-30,CW,mileY+10]);// keep re-checking until the hint clears every box (bounded)
-  for(let it=0,mv=1;mv&&it<8;it++){mv=0;for(const[l,t,rr,bt]of box)if(rr>CW/2-tw/2&&l<CW/2+tw/2&&bt>hy-4&&t<hy+30){hy=bt+gp;mv=1}}}{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}if(tip!==hTip){hTip=tip;hFA=0}hFA=Math.min(1,hFA+dt*3.5);ctx.globalAlpha=hFA;ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);ctx.globalAlpha=1;
-  if(syT<60||syT>CH-215){const ey=syT<60?(bannerT>0?Math.max(118,CH*.17)+76:166):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';let hy=HY;if(tip!==hTip){hTip=tip;hFA=0}hFA=Math.min(1,hFA+dt*3.5);ctx.globalAlpha=hFA;ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);ctx.globalAlpha=1;
+  if(syT<60||syT>CH-215){const ey=syT<60?TOPY+(bannerT>0?76:48):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
  if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+60;roomB=py+20+L.length*16;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*16);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
@@ -810,14 +811,15 @@ function dbgTeleport(m,fromHost,pi){if(!P||mode!=='play')return;if(net&&isHost&&
  const A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6),span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y,tp:1};camY=P.y-200;hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);mileT=0;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m · 平台 #${dbgPI}`,'tp')}
 function dbgZone(b){if(b>NB-1){toast(`已是最後一區（本關只有 ${NB} 區，山頂 ${Math.max(0,-TOP/4)|0} m）`,'tp');return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
- d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button> 平台#<input id="dP" type="number" min=0 value=0 style="width:42px"><button id="dPg">傳送</button><div id="dJ" style="flex-basis:100%;font:11px monospace;color:#ffe94a"></div><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
+ d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button> 平台#<input id="dP" type="number" min=0 value=0 style="width:42px"><button id="dPg">傳送</button><div id="dJ" style="flex-basis:100%;white-space:pre-line;font:11px monospace;color:#ffe94a"></div><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>{b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0';b.tabIndex=-1;b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>b.blur())});
  // keyboard never activates debug controls (Space after a click used to re-press 跳關/傳送); keys still reach the game
  addEventListener('keydown',e=>{const t=e.target;if(t&&t.closest&&t.closest('#dbg')&&t.tagName!=='INPUT'){t.blur();if(e.key===' '||e.key==='Enter')e.preventDefault()}},true);d.addEventListener('change',e=>{if(e.target.type==='checkbox')e.target.blur()});
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth='230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
- $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
- $('dPg').onclick=()=>dbgTeleport(0,0,+$('dP').value|0);setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;j.textContent=(JLOG?`跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台':'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
+ cv.tabIndex=-1;const unf=()=>{const a=document.activeElement;if(a&&a!==document.body&&a.blur)a.blur();try{cv.focus({preventScroll:true})}catch(_){}};/* give keys back to the game */
+ $('dGo').onclick=()=>{go(+$('dLv').value);unf()};$('dTp').onclick=()=>{dbgTeleport(+$('dM').value);unf()};d.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'&&e.key==='Enter'){e.preventDefault();const b={dLv:'dGo',dM:'dTp',dP:'dPg'}[e.target.id];if(b)$(b).onclick();unf()}});$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
+ $('dPg').onclick=()=>{dbgTeleport(0,0,+$('dP').value|0);unf()};setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;const pl=P&&NAV?dbgPlats():[],pn=r=>{const i=r?pl.findIndex(n=>n.r===r):-1;return i<0?'-':i};j.textContent=(JLOG?`起跳平台 #${pn(JLOG.r0)}　最遠水平距離 ${Math.round(JLOG.mx)}px\n跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台 #'+pn(JLOG.r1):'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
  const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· p/P 平台#±1 · i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
   if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
