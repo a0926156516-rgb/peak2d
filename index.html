@@ -52,6 +52,8 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #hintb{position:fixed;left:12px;top:78px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:18px;z-index:3;padding:0;min-width:0}
 #ctl.hide~#hintb{display:none}
 #dbg input,#dbg button{font-size:12px!important;padding:2px 5px!important;min-width:0!important;border-radius:5px;height:24px}#dbg input[type=checkbox]{width:16px;height:16px}
+small.cpb{display:block;width:fit-content;margin-left:auto;margin-right:auto;background:linear-gradient(#ff8a2a,#d9420f);color:#fff!important;border-radius:8px;padding:0 5px;margin-top:1px;font-weight:800;box-shadow:0 0 0 1.5px #fff8,0 0 6px #ff7a1a;text-shadow:0 1px 1px #0006}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}#toast.tin{animation:tin .25s ease-out}
 #toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 .cp{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0}
 .cp .gb{min-width:84px;padding:6px 10px;line-height:1.2;font-size:16px;background:#3d6b8c;color:#fff;border:2px solid transparent}
@@ -253,7 +255,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
-const JV=390,AIRV=100,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=AIRV*.85;// 90% jump speed = 81% jump height, 85% air speed
+const JV=390,AIRV=88,JCAP=110,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=AIRV*.85;// 90% jump speed = 81% jump height, 85% air speed
 let NAV=null;
 function buildNodes(){const nodes=[];
  for(const r of rects){if(r.side)continue;const x0=Math.max(r.x,0),x1=Math.min(r.x+r.w,W)-PW;let a=null;
@@ -263,7 +265,7 @@ function navInit(){const nodes=buildNodes(),byR=new Map();for(const n of nodes){
 function nodeAt(r,x){const L=NAV.byR.get(r);if(!L)return null;let best=null,bd=1e9;for(const n of L){const d=x<n.a?n.a-x:x>n.b?x-n.b:0;if(d<bd){bd=d;best=n}}return bd<=10?best:null}
 function simJump(sx,sy,dir,rel,L,run,jv,as){jv=jv||NAV_JV;as=as||NAV_AS;let x=sx,y=sy-.01,vx=run?dir*as*.9:0,vy=-jv,t=0;
  const H=(x,y)=>{for(const r of L)if(x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y)return r;return null};
- for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*(ax?5:8));vy=Math.min(900,vy+1000*NAV_DT);
+ for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*(ax?5:10));vy=Math.min(900,vy+1000*NAV_DT);
   x+=vx*NAV_DT;let r=H(x,y);if(r){x=vx>0?r.x-PW:r.x+r.w;vx=0}
   y+=vy*NAV_DT;r=H(x,y);if(r){if(vy>0)return vy>600?null:{r,x};y=r.y+r.h;vy=0}
   if(y>sy+260)return null}return null}
@@ -301,8 +303,8 @@ const PW=12,PH=18;
 let bannerZ=0,bannerT=0;let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
 const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
-let toastQ=[];function toast(s){const el=$('toast');if(!el)return;if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.includes(s)){toastQ.push(s);if(toastQ.length>3)toastQ.shift()}toastT=Math.min(toastT,.9);return}el.textContent=s;toastT=2.5}
-function toastTick(dt){const el=$('toast');if(bannerT>0){el.style.visibility='hidden';return}el.style.visibility='';if(toastT>0&&(toastT-=dt)<=0){el.textContent='';if(toastQ.length){el.textContent=toastQ.shift();toastT=toastQ.length?1.3:2.2}}else if(!el.textContent&&toastQ.length){el.textContent=toastQ.shift();toastT=2}}
+let toastQ=[],toastTag='';function toast(s,tag){const el=$('toast');if(!el)return;if(tag){toastQ=toastQ.filter(q=>q.tag!==tag);if(toastTag===tag&&toastT>0){el.textContent=s;toastT=1.2;return}if(toastT>0&&toastTag===''&&bannerT<=0){toastQ.unshift({s:el.textContent,tag:''})}if(bannerT<=0){el.textContent=s;toastTag=tag;toastT=1.2;return}toastQ.unshift({s,tag});return}if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.some(q=>q.s===s)){toastQ.push({s,tag:''});if(toastQ.length>3)toastQ.shift()}if(!toastTag)toastT=Math.min(toastT,.9);return}el.textContent=s;toastTag='';toastT=2.5;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')}
+function toastTick(dt){const el=$('toast');if(bannerT>0){el.style.visibility='hidden';return}el.style.visibility='';const nx=()=>{const q=toastQ.shift();el.textContent=q.s;toastTag=q.tag;toastT=q.tag?1.2:toastQ.length?1.3:2.2;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')};if(toastT>0&&(toastT-=dt)<=0){el.textContent='';toastTag='';if(toastQ.length)nx()}else if(!el.textContent&&toastQ.length)nx()}
 let flashes=[],floats=[],hurt=null,winPend=null;function flash(x,y,c){flashes.push({x,y,c,t:.45})}
 function floatTxt(x,y,txt,c){floats.push({x,y,txt,c,t:1.1})}
 function hurtFx(c){hurt={c,t:.35}}
@@ -362,7 +364,7 @@ function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（�
   const e=document.createElement('button');const ok=i<=nextLv();e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
   if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
   const cq=ok&&cpMeta(i);const sr=b[i]?stars(i,b[i]):0;
-  e.innerHTML=ok?i+(b[i]?`<small class="st">${'★'.repeat(sr)}${'☆'.repeat(3-sr)}</small><small>${fmt(b[i]).replace('分',':').replace('秒','')}</small>`:'')+(cq?`<small>🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?'':'<small>新！</small>'):`${i}<small>🔒</small>`;
+  e.innerHTML=ok?i+(b[i]?`<small class="st">${'★'.repeat(sr)}${'☆'.repeat(3-sr)}</small><small>${fmt(b[i]).replace('分',':').replace('秒','')}</small>`:'')+(cq?`<small class="cpb">🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?'':'<small>新！</small>'):`${i}<small>🔒</small>`;
   e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};
   if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:-6px;top:-8px;font-size:17px;line-height:26px;width:26px;height:26px;text-align:center;background:#c0392b;color:#fff;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 3px rgba(0,0,0,.4)';z.onclick=ev=>{ev.stopPropagation();if(!confirm(`第${i}關：清除營火存檔，從頭開始？`))return;const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
   $('lvgrid').appendChild(e)}
@@ -411,8 +413,8 @@ function update(dt){try{auSteps(dt)}catch(_){}
  P.hun=Math.min(45,P.hun+dt*(.012+.06*DIFF+.2*DIFF*DIFF));
  const nearCamp=P.ground?camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<3&&(()=>{const r=hit(P.x,P.y+PH,PW,2);return r&&c.x>=r.x-4&&c.x<=r.x+r.w+4})()):null;
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
- if(nearCamp&&P.camp!==nearCamp.k&&nearCamp.y-PH-1<checkpoint.y-1){sfx('camp');flash(nearCamp.x,nearCamp.y-8,'#ffc040');puff(nearCamp.x,nearCamp.y-8,'#ffcf5a',14,90,3);P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
- if(P.y<bestY-10){bestY=P.y;progT=elapsed;const mi=Math.floor(-(P.y+PH)/200);if(mi>mile){if(mile>=0&&mi>0){mileTxt=`🏔 ${mi*50}m！`;mileT=1.8}mile=mi}}
+ if(nearCamp&&P.camp!==nearCamp.k&&(checkpoint.tp||nearCamp.y-PH-1<checkpoint.y-1)){sfx('camp');flash(nearCamp.x,nearCamp.y-8,'#ffc040');puff(nearCamp.x,nearCamp.y-8,'#ffcf5a',14,90,3);P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
+ if(P.y<bestY-10){bestY=P.y;progT=elapsed;const mi=Math.floor(-(P.y+PH)/200);if(mi>mile){if(mile>=0&&mi>0)toast(`🏔 ${mi*50}m！`);mile=mi}}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
  if(hint&&P.ground&&!P.cling&&!P.down){const n=standNode();if(n&&n!==hint.n)makeHint(1)}// re-target whenever the ledge under the player changes (e.g. after a fall)
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
@@ -429,8 +431,8 @@ function update(dt){try{auSteps(dt)}catch(_){}
   if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
-  P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:8));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.jh=1;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:10));
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
@@ -462,7 +464,7 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 
 
 // ---------- hint ----------
-let hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
+let hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
 function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
  if(!path||!path.length){if(quiet)hint=null;else toast('先站穩在平台上，再按「？」');return}
@@ -479,7 +481,7 @@ function hintPhase(){const h=hint;if(!h||!h.e)return;const e=h.e,D=d=>d<0?'左':
  const kind=Math.abs(jdx)<=14&&!e.run?'up':e.run?(far?'long':high?'runhigh':'run'):e.rel<1e3?'tap':high?'high':Math.abs(jdx)>60?'wide':'hop';h.kind=kind;
  const goal={up:'原地往上跳',long:'長助跑跳',runhigh:'助跑衝上高台',run:'短助跑跳',tap:'小跳',high:'跳上高台',wide:'跳過缺口',hop:'小跳上去'}[kind];
  if(e.run){if((e.sx-P.x)*e.dir<24){h.walk=true;h.mx=e.sx-e.dir*32+6;h.text=far?`長助跑：先往${D(-e.dir)}退到黃色標記處`:kind==='runhigh'?`這層很高：先往${D(-e.dir)}退一點再助跑`:`先往${D(-e.dir)}退一點，準備${goal}`}
-  else{h.walk=false;h.text=far?`按住「${D(e.dir)}」全速衝，到標記處起跳`:kind==='runhigh'?`往${D(e.dir)}加速，在標記處起跳衝上去`:`往${D(e.dir)}跑兩步，在標記處起跳`}}
+  else{h.walk=false;h.text=far?`按住「${D(e.dir)}」全速衝，到標記處起跳`:kind==='runhigh'?`往${D(e.dir)}助跑，在標記處起跳（空中放開方向鍵可收力）`:`往${D(e.dir)}跑兩步，在標記處起跳`}}
  else if(!at){h.walk=true;h.text=`先往${D(need)}走到黃色標記處，準備${goal}`}
  else{h.walk=false;const dx=h.tx-(P.x+6),dy=h.ty-(P.y+PH),v=(Math.abs(dx)<=14?'往上':(dx<0?'往左':'往右')+(dy<-4?'上':''))+'跳';
   h.text=(wallB?'背靠牆，':'')+v+(e.dir===0?'（不用按方向）':e.rel>1e3?`（按住「${D(e.dir)}」）`:`（起跳後輕點「${D(e.dir)}」）`)}}
@@ -597,9 +599,9 @@ function hud(dt=0){{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(mileT>0&&mode==='play'&&!winPend){mileT-=dt;ctx.save();ctx.globalAlpha=Math.min(1,mileT*2);ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.55)';const my=mileY-(1.8-mileT)*14;ctx.strokeText(mileTxt,CW/2,my);ctx.fillStyle='#ffe25a';ctx.fillText(mileTxt,CW/2,my);ctx.restore()}
  if(hint&&mode==='play'&&!winPend){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
-  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124,net?roomB+8:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);const box=[];for(const id of['toast','dbg']){const el=$(id);if(!el||(id==='toast'&&!(toastT>0&&el.textContent)))continue;const r=el.getBoundingClientRect();if(!r.height||!r.width)continue;box.push([(r.left-cr.left)*sc,(r.top-cr.top)*sc,(r.right-cr.left)*sc,(r.bottom-cr.top)*sc])}
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';const gp=innerWidth<520?14:6;let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124+(gp-6),net?roomB+gp+2:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);const box=[];for(const id of['toast','dbg']){const el=$(id);if(!el||(id==='toast'&&!(toastT>0&&el.textContent)))continue;const r=el.getBoundingClientRect();if(!r.height||!r.width)continue;box.push([(r.left-cr.left)*sc,(r.top-cr.top)*sc,(r.right-cr.left)*sc,(r.bottom-cr.top)*sc])}
   if(mileT>0)box.push([0,mileY-30,CW,mileY+10]);// keep re-checking until the hint clears every box (bounded)
-  for(let it=0,mv=1;mv&&it<8;it++){mv=0;for(const[l,t,rr,bt]of box)if(rr>CW/2-tw/2&&l<CW/2+tw/2&&bt>hy-4&&t<hy+30){hy=bt+6;mv=1}}}{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);
+  for(let it=0,mv=1;mv&&it<8;it++){mv=0;for(const[l,t,rr,bt]of box)if(rr>CW/2-tw/2&&l<CW/2+tw/2&&bt>hy-4&&t<hy+30){hy=bt+gp;mv=1}}}{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}if(tip!==hTip){hTip=tip;hFA=0}hFA=Math.min(1,hFA+dt*3.5);ctx.globalAlpha=hFA;ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);ctx.globalAlpha=1;
   if(syT<60||syT>CH-215){const ey=syT<60?(bannerT>0?Math.max(118,CH*.17)+76:166):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
  if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+40;roomB=py+20+L.length*16;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*16);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
@@ -797,8 +799,8 @@ $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m});const ty=-m*4-PH,np=net?Math.max(1,lobbyList.length):1,need=(np-1)*56+PW+4;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const a=Math.max(n.a,6),bb=Math.min(n.b,W-PW-6);if(bb<a)continue;const d=Math.abs(n.y-ty)+(bb-a<need?400:0);if(!best||d<best.d)best={n,d}}
  if(!best)return;const n=best.n;const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;// players get evenly spaced slots (>=56px apart) inside the ledge and the visible level; food only nudges the whole group
- const A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6),span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
-function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
+ const A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6),span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y,tp:1};camY=P.y-200;hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);mileT=0;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`,'tp')}
+function dbgZone(b){if(b>NB-1){toast(`已是最後一區（本關只有 ${NB} 區，山頂 ${Math.max(0,-TOP/4)|0} m）`,'tp');return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
  d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>{b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0';b.tabIndex=-1;b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>b.blur())});
@@ -806,7 +808,7 @@ if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cs
  addEventListener('keydown',e=>{const t=e.target;if(t&&t.closest&&t.closest('#dbg')&&t.tagName!=='INPUT'){t.blur();if(e.key===' '||e.key==='Enter')e.preventDefault()}},true);d.addEventListener('change',e=>{if(e.target.type==='checkbox')e.target.blur()});
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth='230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
- $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
+ $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
  $('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
  const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
