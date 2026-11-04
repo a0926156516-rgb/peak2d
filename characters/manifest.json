@@ -1,0 +1,69 @@
+{
+  "frameW": 72,
+  "frameH": 127,
+  "anchor": [
+    36,
+    123
+  ],
+  "scale": 0.1593,
+  "facesLeft": false,
+  "sheets": {
+    "male": {
+      "base": "male.png",
+      "mask": "male_mask.png",
+      "colored": [
+        "male_red.png",
+        "male_blue.png",
+        "male_green.png",
+        "male_yellow.png"
+      ],
+      "scale": 0.171,
+      "name": "阿岩"
+    },
+    "female": {
+      "base": "female.png",
+      "mask": "female_mask.png",
+      "colored": [
+        "female_red.png",
+        "female_blue.png",
+        "female_green.png",
+        "female_yellow.png"
+      ],
+      "scale": 0.148,
+      "name": "小攀"
+    }
+  },
+  "colors": [
+    "#e8483b",
+    "#2f8fe0",
+    "#3fb85a",
+    "#f2b630"
+  ],
+  "anims": {
+    "idle": {
+      "row": 0,
+      "frames": 4,
+      "fps": 6
+    },
+    "walk": {
+      "row": 1,
+      "frames": 6,
+      "fps": 12
+    },
+    "jump": {
+      "row": 2,
+      "frames": 4,
+      "fps": 8
+    },
+    "climb": {
+      "row": 3,
+      "frames": 4,
+      "fps": 8
+    },
+    "fall": {
+      "row": 4,
+      "frames": 4,
+      "fps": 8
+    }
+  }
+}

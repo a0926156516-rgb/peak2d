@@ -25,11 +25,12 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #ctl.hide~#hintb{display:none}
 #toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 .cp{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0}
-.cp .gb{min-width:72px;padding:8px 10px;font-size:16px;background:#3d6b8c;color:#fff;border:2px solid transparent}
+.cp .gb{min-width:84px;padding:6px 10px;line-height:1.2;font-size:16px;background:#3d6b8c;color:#fff;border:2px solid transparent}
 .cp .gb.sel{background:#f2a33a;color:#2a1600;border-color:#fff}
 .cp .sw{min-width:0;width:48px;height:40px;padding:0;font-size:11px;color:#fff;text-shadow:0 1px 2px #000;border:3px solid transparent;overflow:hidden}
 .cp .sw.sel{border-color:#fff;box-shadow:0 0 0 2px #000 inset}
 .cp .sw.tk{filter:grayscale(.85) brightness(.55);cursor:not-allowed}
+.pv{position:static!important;display:inline-block;width:44px!important;height:56px!important;pointer-events:none}
 </style></head><body>
 <canvas id="c"></canvas>
 <div id="toast"></div>
@@ -95,16 +96,16 @@ const SPR={ok:false,m:null,sheets:{},tint:{}};
 (async()=>{try{const r=await fetch('characters/manifest.json',{cache:'no-cache'});if(!r.ok)return;const m=await r.json();
  const load=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src='characters/'+src});
  for(const g of['male','female']){const d=m.sheets&&m.sheets[g];if(!d)continue;
-  SPR.sheets[g]=Array.isArray(d)?{perColor:await Promise.all(d.map(load))}:{base:await load(d.base||d),mask:d.mask?await load(d.mask):null}}
- SPR.m=m;SPR.ok=!!(SPR.sheets.male&&SPR.sheets.female)}catch(e){console.info('no character sprites, using procedural',e&&e.message)}})();
+  SPR.sheets[g]=Array.isArray(d)?{perColor:await Promise.all(d.map(load))}:d.colored?{perColor:await Promise.all(d.colored.map(load)),scale:d.scale,name:d.name}:{base:await load(d.base||d),mask:d.mask?await load(d.mask):null,scale:d.scale,name:d.name}}
+ SPR.m=m;SPR.ok=!!(SPR.sheets.male&&SPR.sheets.female);if(SPR.ok)renderPickers()}catch(e){console.info('no character sprites, using procedural',e&&e.message)}})();
 function tintedMask(g,ci){const k=g+ci;if(SPR.tint[k])return SPR.tint[k];const mk=SPR.sheets[g].mask,c=document.createElement('canvas');c.width=mk.width;c.height=mk.height;
- const x=c.getContext('2d');x.drawImage(mk,0,0);x.globalCompositeOperation='multiply';x.fillStyle=COLORS[ci];x.fillRect(0,0,c.width,c.height);x.globalCompositeOperation='destination-in';x.drawImage(mk,0,0);return SPR.tint[k]=c}
+ const x=c.getContext('2d');x.drawImage(SPR.sheets[g].base,0,0);x.globalCompositeOperation='multiply';x.fillStyle=COLORS[ci];x.fillRect(0,0,c.width,c.height);x.globalCompositeOperation='destination-in';x.drawImage(mk,0,0);return SPR.tint[k]=c}
 // Draws a character with feet at (0,0) in the current transform. anim: idle|walk|jump|climb|fall; frame: running counter (seconds); facing: 1|-1
 function drawCharacter(ctx,gender,colorIndex,anim,frame,facing){
  const g=gender==='f'?'female':'male',ci=colorIndex|0;
- if(SPR.ok){const m=SPR.m,a=(m.anims&&(m.anims[anim]||m.anims.idle))||{row:0,frames:1,fps:1},fw=m.frameW,fh=m.frameH,sc=m.scale||1,an=m.anchor||[fw/2,fh];
-  const fi=Math.floor(frame*(a.fps||8))%(a.frames||1),sx=fi*fw,sy=(a.row||0)*fh,sh=SPR.sheets[g];
-  ctx.save();if(facing<0!==(m.facesLeft===true))ctx.scale(-1,1);
+ if(SPR.ok){const m=SPR.m,a=(m.anims&&(m.anims[anim]||m.anims.idle))||{row:0,frames:1,fps:1},fw=m.frameW,fh=m.frameH,an=m.anchor||[fw/2,fh];
+  const sh=SPR.sheets[g],sc=sh.scale||m.scale||1,fi=a.hold&&false?0:Math.floor(frame*(a.fps||8))%(a.frames||1),sx=fi*fw,sy=(a.row||0)*fh;
+  ctx.save();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';if(facing<0!==(m.facesLeft===true))ctx.scale(-1,1);
   const dr=img=>ctx.drawImage(img,sx,sy,fw,fh,-an[0]*sc,-an[1]*sc,fw*sc,fh*sc);
   if(sh.perColor)dr(sh.perColor[ci]||sh.perColor[0]);else{dr(sh.base);if(sh.mask)dr(tintedMask(g,ci))}
   ctx.restore();return}
@@ -363,9 +364,10 @@ function showLobby(pl){lobbyList=pl.map(p=>({...p,ci:p.ci??p.c??COLORS.indexOf(p
  renderPickers()}
 function renderPickers(){
  const taken={};if(mode==='room')for(const p of lobbyList)if(p.id!==myId)taken[p.ci]=p.n;
- const html=`<div class="cp"><span>角色</span>${['m','f'].map(g=>`<button class="gb${myGender===g?' sel':''}" data-g="${g}">${g==='m'?'♂ 男':'♀ 女'}</button>`).join('')}</div>
+ const html=`<div class="cp"><span>角色</span>${['m','f'].map(g=>`<button class="gb${myGender===g?' sel':''}" data-g="${g}"><canvas class="pv" data-pg="${g}" width="44" height="56"></canvas><br>${g==='m'?'♂ 阿岩':'♀ 小攀'}</button>`).join('')}</div>
  <div class="cp">${COLORS.map((c,i)=>`<button class="sw${myCI===i?' sel':''}${taken[i]!=null?' tk':''}" data-c="${i}" style="background:${c}" ${taken[i]!=null?'disabled':''} title="${COLOR_NAMES[i]}">${taken[i]!=null?esc(taken[i]):myCI===i?'✓':''}</button>`).join('')}</div>`;
- for(const id of['pick','rpick']){const el=$(id);if(el)el.innerHTML=html}}
+ for(const id of['pick','rpick']){const el=$(id);if(el)el.innerHTML=html}
+ document.querySelectorAll('canvas.pv').forEach(c=>{const x=c.getContext('2d'),k=2.7;x.translate(c.width/2,c.height-3);x.scale(k,k);drawCharacter(x,c.dataset.pg,myCI,'idle',0,1)})}
 function pickGender(g){myGender=g;saveChar();if(mode==='room'&&net){if(serverRoster)wsend({t:'pickGender',g});else if(isHost){lobby[myId].g=g;bcLobby()}else hostConn&&hostConn.send({t:'pick',g})}renderPickers()}
 function pickColor(i){if(mode==='room'&&net){if(lobbyList.some(p=>p.id!==myId&&p.ci===i))return toast('顏色已被選走');
   if(serverRoster)wsend({t:'pickColor',c:i});else if(isHost){if(!Object.entries(lobby).some(([id,v])=>id!==myId&&v.ci===i)){Object.assign(lobby[myId],{ci:i,col:COLORS[i]});bcLobby()}}else hostConn&&hostConn.send({t:'pick',c:i});return}

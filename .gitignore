@@ -1,2 +1,4 @@
 node_modules/
 *.png
+!characters/male*.png
+!characters/female*.png
