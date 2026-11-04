@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: panjian-peak2d
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /

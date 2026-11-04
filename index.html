@@ -293,7 +293,10 @@ requestAnimationFrame(loop);
 
 // ---------- networking (WebSocket relay) ----------
 let ws=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
-const RELAY_URL=new URLSearchParams(location.search).get('server')||'wss://panjian-peak2d.deno.dev/ws';
+const RELAY_URL=new URLSearchParams(location.search).get('server')||'wss://panjian-peak2d.onrender.com/ws';
+const HTTP_URL=RELAY_URL.replace(/^ws/,'http').replace(/\/ws$/,'/');
+try{fetch(HTTP_URL,{mode:'no-cors',cache:'no-store'}).catch(()=>{})}catch(_){}
+let connGen=0;
 let joinTimer=0,lastAction=null,reconnTried=false,lobbyList=[];
 const sid=id=>String(id).slice(-4).toUpperCase();
 const safe=f=>(...a)=>{try{f(...a)}catch(e){console.warn('net handler',e)}};
@@ -306,19 +309,21 @@ function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].send(
 function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].send({t:'lobby',pl});showLobby(pl)}
 function showLobby(pl){lobbyList=pl;$('pcount').textContent=`玩家 ${pl.length}/4`;$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
  for(const p of pl)if(p.id===myId)myColor=p.col}
-function failNet(m){clearTimeout(joinTimer);st(m);$('bRetry').classList.remove('hide');const w=ws;ws=null;try{w&&w.close()}catch(_){}}
-function connect(first,onMsg){
+function failNet(m){clearTimeout(joinTimer);connGen++;st(m);$('bRetry').classList.remove('hide');const w=ws;ws=null;try{w&&w.close()}catch(_){}}
+function connect(first,onMsg,dl,gen){
  try{ws&&ws.close()}catch(_){}
- $('bRetry').classList.add('hide');st('連線伺服器中…');
+ if(!dl){dl=Date.now()+75000;gen=++connGen;clearTimeout(joinTimer);joinTimer=setTimeout(()=>{if(gen===connGen&&!net)failNet('無法連上伺服器，請稍後再試')},75000);$('bRetry').classList.add('hide');st('連線伺服器中…');
+  const wt=setTimeout(()=>{if(gen===connGen&&!net)st('伺服器喚醒中，約需 30–60 秒…')},2500)}
+ if(gen!==connGen)return;
  let s;try{s=new WebSocket(RELAY_URL)}catch(e){failNet('無法連上伺服器');return}
- ws=s;clearTimeout(joinTimer);joinTimer=setTimeout(()=>{if(ws===s&&!net)failNet('連線逾時，無法連上伺服器')},10000);
+ ws=s;
  s.onopen=()=>{if(ws===s)wsend(first)};
  s.onmessage=safe(e=>{if(ws!==s)return;const m=JSON.parse(e.data);
   if(m.t==='ping'){wsend({t:'pong'});return}
   if(m.t==='error'){net=false;failNet(ERR[m.e]||('錯誤：'+m.e));if(mode==='room')leave(true);return}
   onMsg(m)});
  s.onclose=()=>{if(ws!==s)return;ws=null;const was=net;net=false;
-  if(!was){failNet('無法連上伺服器');return}
+  if(!was){if(gen===connGen&&Date.now()<dl-3000){st('伺服器喚醒中，約需 30–60 秒…');fetch(HTTP_URL,{mode:'no-cors',cache:'no-store'}).catch(()=>{});setTimeout(()=>connect(first,onMsg,dl,gen),3000)}else if(gen===connGen)failNet('無法連上伺服器，請稍後再試');return}
   remotes={};
   if(!isHost&&mode==='room'&&!reconnTried){reconnTried=true;st('連線中斷，重新連線中…');join(roomCode,true);return}
   toast(isHost?'與伺服器斷線，改為單人模式':'與房主斷線，改為單人模式');
@@ -369,7 +374,7 @@ function clientHandle(d){
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('')}
-function leave(keepStatus){const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
+function leave(keepStatus){connGen++;clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('')}
 function hostStart(){const s=Math.random()*1e9|0;wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
