@@ -14,18 +14,21 @@ h1{font-size:46px;margin:0;letter-spacing:6px;font-weight:900;text-shadow:0 4px 
 h2{font-weight:900;letter-spacing:2px}
 .ov.art{background:var(--artbg) center bottom/cover no-repeat,#16263a}
 #logo{width:min(300px,78vw);height:auto;display:block;margin:-6px 0 -4px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.25))}
-.howto{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:340px;width:100%;font-size:12.5px;text-align:left}
+.howto{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:340px;width:100%;font-size:14px;text-align:left}
 .howto div{display:flex;gap:7px;align-items:center;background:rgba(10,20,35,.55);border-radius:12px;padding:6px 8px;line-height:1.25}
 .howto i{font-style:normal;font-size:22px;flex:none;width:26px;text-align:center}
-.howto .wide{grid-column:1/3;font-size:11px;opacity:.85;justify-content:center}
-.zh{grid-column:1/-1;text-align:left;font-weight:900;font-size:14px;padding:5px 10px;border-radius:10px;margin-top:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.lvb{min-width:0;width:58px;height:54px;padding:0;font-size:16px;line-height:1.05;position:relative;border-radius:12px;font-weight:900;box-shadow:0 3px 0 rgba(0,0,0,.25)}
-.lvb small{display:block;font-size:9px;font-weight:700}
+.howto .wide{grid-column:1/3;font-size:12.5px;opacity:.85;justify-content:center}
+.zh{grid-column:1/-1;text-align:left;font-weight:900;font-size:16px;padding:5px 10px;border-radius:10px;margin-top:6px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.lvb{min-width:0;width:60px;height:60px;padding:0;font-size:16px;line-height:1.05;position:relative;border-radius:12px;font-weight:900;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.lvb small{display:block;font-size:11px;font-weight:700}
 .lvb.lock{background:#2b3442;color:#9aa6b6;box-shadow:none;border:1px dashed #4a586c}
 .lvb.lock small{font-size:12px}
-.lvb .st{color:#fff3a0;letter-spacing:-1px;font-size:10px;text-shadow:0 1px 1px rgba(0,0,0,.6)}
+.lvb .st{color:#fff3a0;letter-spacing:-1px;font-size:11px;text-shadow:0 1px 1px rgba(0,0,0,.6)}
 #rbadge{display:flex;flex-direction:column;align-items:center;background:linear-gradient(#ffd27a,#f2a33a);color:#2a1600;border-radius:20px;padding:6px 26px 8px;box-shadow:0 5px 0 #b4512a;cursor:pointer;min-width:220px}
-#rbadge small{font-size:12px;font-weight:800;opacity:.75}
+#rlvw.lvpick{display:flex;align-items:center;gap:8px}.lvpick button{min-width:0;width:52px;height:52px;padding:0;font-size:20px;border-radius:50%}
+#rlvB{background:rgba(10,20,35,.6);border:3px solid #ffd27a;border-radius:16px;padding:4px 18px;display:flex;flex-direction:column;align-items:center;min-width:120px}#rlvB small{font-size:12px;opacity:.8}#rlvB b{font-size:22px;font-weight:900}
+#rlvw.lvpick.hide{display:none}
+#rbadge small{font-size:14px;font-weight:800;opacity:.75}
 #rcode{font-size:54px;letter-spacing:12px;font-weight:900;line-height:1;margin-left:12px}
 #slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(340px,92vw)}
 .slot{background:rgba(10,20,35,.6);border-radius:14px;padding:6px;display:flex;align-items:center;gap:6px;border:3px solid rgba(255,255,255,.12);min-height:74px;text-align:left;font-size:13px}
@@ -78,7 +81,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
   <path d="M40 98 Q70 70 76 40" stroke="#ffd27a" stroke-width="2" fill="none" stroke-dasharray="4 3"/>
   <g transform="translate(66 62)"><rect x="-3" y="-12" width="7" height="9" rx="2" fill="#2f8fd8"/><circle cx=".5" cy="-15" r="3.5" fill="#ffe0bd"/><path d="M-3 -18h7v-2.5h-7z" fill="#e8433a"/><rect x="-3" y="-3" width="2.5" height="5" fill="#334"/><rect x="1.5" y="-3" width="2.5" height="5" fill="#334"/><rect x="4" y="-14" width="5" height="2" fill="#ffe0bd" transform="rotate(-40 4 -14)"/></g>
   <text x="236" y="72" text-anchor="middle" font-size="62" font-weight="900" fill="url(#lg)" stroke="#7a2e12" stroke-width="5" paint-order="stroke" letter-spacing="4" font-family="var(--rf)">攀岩</text>
-  <text x="236" y="98" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" opacity=".9" font-family="var(--rf)">2D 合作登山 · 最多 4 人</text></svg>
+  <text x="236" y="98" text-anchor="middle" font-size="16" font-weight="800" fill="#fff" font-family="var(--rf)">2D 合作登山 · 最多 4 人</text></svg>
  <input id="nick" maxlength="8" placeholder="暱稱">
  <div id="pick"></div>
  <button id="bSolo">繼續 · 第1關</button><button id="bLvs" class="alt">選擇關卡</button>
@@ -95,13 +98,13 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 <div id="room" class="ov art hide">
  <div id="rbadge" title="點一下複製邀請碼"><small>房間邀請碼 · 點我複製</small><div id="rcode">-----</div></div>
  <button id="bCopy" class="alt">🔗 複製分享連結</button>
- <div id="pcount" style="font-weight:900">玩家 1/4</div><div id="slots"></div><ul id="plist" class="hide"></ul><div id="rpick"></div><div id="rlvw">關卡 <select id="rlv" style="font-size:16px;padding:4px"></select></div>
+ <div id="pcount" style="font-weight:900">玩家 1/4</div><div id="slots"></div><ul id="plist" class="hide"></ul><div id="rpick"></div><div id="rlvw" class="lvpick"><button id="rlvM" class="alt">◀</button><div id="rlvB"><small>關卡</small><b id="rlvT">第1關</b></div><button id="rlvP" class="alt">▶</button><select id="rlv" class="hide"></select></div>
  <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
  <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
  <button id="bLeave" class="alt">離開</button>
 </div>
 <div id="lvs" class="ov art hide">
- <h2 style="margin:0">選擇關卡</h2><div id="lvgrid" style="display:grid;grid-template-columns:repeat(5,58px);gap:6px;max-height:68vh;overflow:auto;padding:4px 4px 10px;justify-content:center"></div>
+ <h2 style="margin:0">選擇關卡</h2><div id="lvgrid" style="display:grid;grid-template-columns:repeat(5,60px);gap:6px;max-height:68vh;overflow:auto;padding:4px 4px 10px;justify-content:center"></div>
  <button id="bLvBack" class="alt">返回</button>
 </div>
 <div id="end" class="ov hide">
@@ -281,10 +284,11 @@ function hit(x,y,w,h){const E=1e-6;for(const r of rects)if(x<r.x+r.w-E&&x+w>r.x+
 
 // ---------- state ----------
 const PW=12,PH=18;
-let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
+let bannerZ=0,bannerT=0;let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
 const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
-function toast(s){$('toast').textContent=s;toastT=2.5}
+let toastQ=[];function toast(s){const el=$('toast');if(!el)return;if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.includes(s)){toastQ.push(s);if(toastQ.length>3)toastQ.shift()}toastT=Math.min(toastT,.9);return}el.textContent=s;toastT=2.5}
+function toastTick(dt){const el=$('toast');if(bannerT>0){el.style.visibility='hidden';return}el.style.visibility='';if(toastT>0&&(toastT-=dt)<=0){el.textContent='';if(toastQ.length){el.textContent=toastQ.shift();toastT=toastQ.length?1.3:2.2}}else if(!el.textContent&&toastQ.length){el.textContent=toastQ.shift();toastT=2}}
 let flashes=[],floats=[],hurt=null,winPend=null;function flash(x,y,c){flashes.push({x,y,c,t:.45})}
 function floatTxt(x,y,txt,c){floats.push({x,y,txt,c,t:1.1})}
 function hurtFx(c){hurt={c,t:.35}}
@@ -341,16 +345,18 @@ function stars(i,t){const par=45+2.2*i;return t<=par*1.4?3:t<=par*2.2?2:1}
 function contLv(){const l=prog().l;return l>=1&&l<=nextLv()?l:nextLv()}
 function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（營火 ${Math.max(0,-(C0.y+PH)/4)|0} m）`;$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
  $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const ch=lvChapter(i);if(i===ch.a){const h=document.createElement('div');h.className='zh';h.style.background=`linear-gradient(90deg,${BIOMES[ch.z].rock},${BIOMES[ch.z].edge}aa)`;h.textContent=`${['🏖️','🌴','🏔️','🌋'][ch.z]} ${BIOMES[ch.z].n}篇 · 第${ch.a}–${ch.b}關`;$('lvgrid').appendChild(h)}
-  const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
+  const e=document.createElement('button');const ok=i<=nextLv();e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
   if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
   const cq=ok&&cpMeta(i);const sr=b[i]?stars(i,b[i]):0;
   e.innerHTML=ok?i+(cq?`<small>🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?`<small class="st">${'★'.repeat(sr)}${'☆'.repeat(3-sr)}</small><small>${fmt(b[i]).replace('分',':').replace('秒','')}</small>`:'<small>新！</small>'):`${i}<small>🔒</small>`;
   e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};
   if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:-6px;top:-8px;font-size:17px;line-height:26px;width:26px;height:26px;text-align:center;background:#c0392b;color:#fff;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 3px rgba(0,0,0,.4)';z.onclick=ev=>{ev.stopPropagation();if(!confirm(`第${i}關：清除營火存檔，從頭開始？`))return;const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
   $('lvgrid').appendChild(e)}
- const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n)}}
+ const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n);rlvShow()}}
+function rlvShow(){const sl=$('rlv'),t=$('rlvT');if(!sl||!t)return;const v=+sl.value||1,z=lvChapter(v).z;t.textContent=`第${v}關`;$('rlvB').style.borderColor=BIOMES[z].edge;$('rlvB').querySelector('small').textContent=`${['🏖️','🌴','🏔️','🌋'][z]} ${BIOMES[z].n}篇`}
+function rlvStep(d){const sl=$('rlv'),n=sl.options.length;sl.value=Math.max(1,Math.min(n,(+sl.value||1)+d));rlvShow()}
 function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){const g=prog();g.l=s;try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
- seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
+ seed=s;genWorld(seed);P=newPlayer();toastQ=[];lavaFloor=0;if(net){const ix=Math.max(0,lobbyList.findIndex(p=>p.id===myId));if(ix>0)for(const dx of [ix*18,-ix*18,ix*30,-ix*30]){const x=P.x+dx;if(x>=0&&x+PW<=W&&!hit(x,P.y,PW,PH)&&hit(x,P.y+PH,PW,3)){P.x=x;break}}}checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
  if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-36,36,-72],x0=P.x;
   L.forEach((p,i)=>{const x=x0+SL[i%4];if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
@@ -365,11 +371,15 @@ function loadCP(lv){const c=cpMeta(lv);return c&&Number.isFinite(c.y)&&!hit(c.x,
 function saveCP(){if(net||window.BOT)return;const o=cps();o[LV]={lv:LV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
 function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
-function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
+// respawn: never into (or just above) lava. Solo/host lower the lava under the campfire; guests ask the host (host-authoritative, synced via 'ps').
+const LAVA_SAFE=260;let lavaFloor=0;
+function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0,invT:3,cling:0});P.stam=maxS(P);
+ const want=P.y+PH+LAVA_SAFE;if(lavaOn&&lava<want){lava=want;if(net&&!isHost){lavaFloor=want;send({t:'lavaLow',y:want})}else if(net&&isHost)for(const id in conns)conns[id].send({t:'ps',ps:{},lava,lo:lavaOn,only:1})}
+ toast(lavaOn?'於營火處重生（熔岩退後了，快爬！）':'於營火處重生')}
 // summit: hold 1.8 s on the flag/cairn with confetti before the win screen covers it
-function winSoon(name,time){if(mode!=='play'||winPend)return;if(window.BOT){win(name,time);return}winPend={name,time};const lv=LV;toast(`🎉 ${name} 登頂！`);sfx('win');let k=0;const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y;const iv=setInterval(()=>{if(mode!=='play'||LV!==lv){clearInterval(iv);return}for(const c of ['#ff4d4d','#ffd23a','#4dc3ff','#7dff6a','#ff7ae0'])puff(fx+(Math.random()-.5)*80,fy-40-Math.random()*30,c,3,140,3);if(++k>=9)clearInterval(iv)},200);
+function winSoon(name,time){if(mode!=='play'||winPend)return;if(window.BOT){win(name,time);return}winPend={name,time};const lv=LV;toast(`🎉 ${name} 登頂！`);sfx('win');let k=0;const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y;const iv=setInterval(()=>{if(mode!=='play'||LV!==lv){clearInterval(iv);return}for(const c of ['#ff4d4d','#ffd23a','#4dc3ff','#7dff6a','#ff7ae0','#ffffff'])puff(fx+(Math.random()-.5)*160,fy-30-Math.random()*70,c,7,200,3.5);if(++k>=14)clearInterval(iv)},120);for(const c of ['#ff4d4d','#ffd23a','#4dc3ff','#7dff6a','#ff7ae0'])puff(fx,fy-40,c,16,260,4);
  setTimeout(()=>{if(winPend&&LV===lv){winPend=null;win(name,time)}},window.BOT?0:1800)}
-function win(name,time){if(mode!=='play')return;winPend=null;mode='end';clearCP(LV);auMusic(false);$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
+function win(name,time){if(mode!=='play')return;winPend=null;mode='end';if(!net)clearCP(LV);auMusic(false);$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
  $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
  $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);if(net&&!isHost)$('einfo').innerHTML+=`<br><span id="gwait" style="opacity:.85">等房主按下一關…</span>`;$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
@@ -449,7 +459,7 @@ function hintPhase(){const h=hint;if(!h||!h.e)return;const e=h.e,D=d=>d<0?'左':
 // ---------- render ----------
 function render(dt){
  const s=CW/W*DPR,vh=CH/(CW/W);
- const target=P?P.y-vh*.55:0;camY+=(target-camY)*Math.min(1,dt*6);
+ const target=P?P.y-vh*(CW<520?.4:.55):0;camY+=(target-camY)*Math.min(1,dt*6);
  const b=P?biomeAt(P.y):0,B=BIOMES[b];
  // zone blend: over the last 30% of a zone the palette fades into the next one
  const zf=P?Math.max(0,Math.min(NB-1,-(P.y+PH)/BL)):0,zb=Math.min(NB-1,zf|0),zn=Math.min(NB-1,zb+1),zt=zb===zn?0:Math.max(0,(zf-zb-.7)/.3),C=(k,i)=>mix(BIOMES[zb][k][i],BIOMES[zn][k][i],zt);
@@ -516,7 +526,7 @@ const TEX={};function texOf(b){if(TEX[b])return TEX[b];const B=BIOMES[b],c=docum
  for(let i=0;i<(b===0?60:22);i++){g.fillStyle=r()<.5?'rgba(0,0,0,.13)':'rgba(255,255,255,.16)';const z=b===0?1:2+r()*3;g.fillRect(r()*24|0,r()*24|0,z,b===0?1:z*.6)}
  const gc=document.createElement('canvas');gc.width=gc.height=24;const q=gc.getContext('2d');q.fillStyle='#e6c88a';q.fillRect(0,0,24,24);for(let i=0;i<70;i++){q.fillStyle=r()<.5?'rgba(150,110,50,.25)':'rgba(255,255,255,.3)';q.fillRect(r()*24|0,r()*24|0,1,1)}
  const pat=x=>ctx.createPattern(x,'repeat');return TEX[b]={rock:pat(c),ground:pat(gc),side:'rgba(0,0,0,.28)'}}
-let nameT0=0;const VS=()=>CW<520?2.25:1.2;let bannerZ=0,bannerT=0;
+let nameT0=0;const VS=()=>CW<520?2.25:1.2;
 function drawP(x,y,g,ci,f,an,dn,name,me){
  const t=performance.now()/1000,low=me&&!dn&&P.stam<maxS(P)*.2,sc=VS();
  let qx=1,qy=1,rot=0,bob=0;const fc=f||1;
@@ -542,7 +552,8 @@ function hud(){
  ctx.font='bold 13px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.fillText('⚡ '+(P.stam|0),x+6,y+10.5);
  ctx.font='bold 12px sans-serif';let ix=x;for(const[ic,v,c]of[['🩹',P.inj,'#ff8a8a'],['🍖',P.hun,'#ffc27a'],['❄️',P.cold,'#9fdcff']]){ctx.fillStyle=v>=1?c:'rgba(255,255,255,.55)';ctx.fillText(ic+' '+(v|0),ix,y+34);ix+=52}
  ctx.fillStyle='#fff';ctx.font='11px sans-serif';ctx.fillText(`第${LV}關·`+BIOMES[biomeAt(P.y)].n+(net?`·${Object.keys(remotes).length+1}人`:''),ix+2,y+34);ctx.textBaseline='alphabetic';
- // altitude ruler (right edge)
+ // altitude ruler (right edge) - fades when the player stands near it
+ if(P&&(P.x+PW)*CW/W>CW-70)ctx.globalAlpha=.35;
  const rx=CW-16,ry0=74,ry1=Math.max(ry0+120,CH-300),H=ry1-ry0,fr=v=>Math.max(0,Math.min(1,-v/-TOP)),alt=Math.max(0,-(P.y+PH)/4)|0;
  ctx.fillStyle='rgba(10,16,28,.5)';rrect(rx-5,ry0-4,10,H+8,5);ctx.fill();
  for(let b2=0;b2<NB;b2++){const a0=fr(-b2*BL),a1=fr(-(b2+1)*BL);ctx.fillStyle=BIOMES[b2].edge;ctx.fillRect(rx-2,ry1-a1*H,4,(a1-a0)*H)}
@@ -554,7 +565,8 @@ function hud(){
  const py=ry1-fr(P.y+PH)*H;ctx.fillStyle=COLORS[myCI]||'#fff';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(rx,py,6,0,7);ctx.fill();ctx.stroke();
  ctx.textAlign='right';ctx.font='bold 13px sans-serif';ctx.fillStyle='#fff';ctx.fillText(`${alt}m`,rx-10,py+4);
  ctx.font='bold 12px sans-serif';ctx.fillText(`${alt} / ${-TOP/4|0} m · ${fmt(elapsed)}`,CW-8,ry1+22);
- if(bannerT>0){const a=Math.min(1,bannerT*2,(2.8-bannerT)*3),Bz=BIOMES[bannerZ],yb=CH*.3;ctx.globalAlpha=a;const bg=ctx.createLinearGradient(0,0,CW,0);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(.5,'rgba(10,16,28,.7)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,yb-30,CW,56);ctx.fillStyle=Bz.edge;ctx.fillRect(CW*.2,yb-30,CW*.6,2);ctx.fillRect(CW*.2,yb+24,CW*.6,2);ctx.textAlign='center';ctx.font='900 28px sans-serif';ctx.fillStyle='#fff';ctx.shadowColor=Bz.rock;ctx.shadowBlur=10;ctx.fillText('進入'+Bz.n,CW/2,yb+8);ctx.shadowBlur=0;ctx.globalAlpha=1}
+ ctx.globalAlpha=1;
+ if(bannerT>0){const a=Math.min(1,bannerT*2,(2.8-bannerT)*3),Bz=BIOMES[bannerZ],yb=Math.max(118,CH*.17);ctx.globalAlpha=a;const bg=ctx.createLinearGradient(0,0,CW,0);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(.5,'rgba(10,16,28,.7)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,yb-30,CW,56);ctx.fillStyle=Bz.edge;ctx.fillRect(CW*.2,yb-30,CW*.6,2);ctx.fillRect(CW*.2,yb+24,CW*.6,2);ctx.textAlign='center';ctx.font='900 28px sans-serif';ctx.fillStyle='#fff';ctx.shadowColor=Bz.rock;ctx.shadowBlur=10;ctx.fillText('進入'+Bz.n,CW/2,yb+8);ctx.shadowBlur=0;ctx.globalAlpha=1}
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(hint){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
   ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(CW/2-tw/2,124,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,142);
@@ -576,7 +588,7 @@ function loop(now,fb){if(!fb){requestAnimationFrame(loop);lastRAF=performance.no
  for(const k in K)prev[k]=K[k];
  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.ng?-20:300)*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);for(const F of flashes)F.t-=dt;flashes=flashes.filter(F=>F.t>0);for(const F of floats){F.t-=dt;F.y-=28*dt}floats=floats.filter(F=>F.t>0);if(hurt){hurt.t-=dt;if(hurt.t<=0)hurt=null}
  for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
- shake-=dt;if(toastT>0&&(toastT-=dt)<=0)$('toast').textContent='';
+ shake-=dt;toastTick(dt);
  if(net&&mode==='play'&&(netT+=dt)>.055){netT=0;netTick()}
  try{if(P)render(dt);else{ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height)}RERR=0}catch(e){RERR+=dt;console.error('render',e);ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height);if(RERR>1&&mode==='play'&&RFIX++<3){RERR=0;startGame(LV)}}
 }
@@ -669,6 +681,7 @@ function hostHandle(from,d,self,c){
  }else if(d.t==='st'){const L=lobbyList.find(p=>p.id===from)||lobby[from];if(L)remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:L.n,g:L.g,ci:L.ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);winSoon(d.n,d.tm)}
+ else if(d.t==='lavaLow'){if(Number.isFinite(d.y)&&lava<d.y)lava=d.y}
 }
 let pendingSnap=new Set();
 // mid-game join: send full snapshot once host is standing (not respawning)
@@ -713,9 +726,9 @@ function clientHandle(d){
  else if(d.t==='start')startGame(d.seed);
  else if(d.t==='snap')applySnap(d);
  else if(d.t==='pjoin')toast(`${d.n} 加入了遊戲`);
- else if(d.t==='ps'){if(mode!=='play')return;lava=d.lava;if(d.lo)lavaOn=true;
+ else if(d.t==='ps'){if(mode!=='play')return;lava=(P&&P.invT>0&&lavaFloor)?Math.max(d.lava,lavaFloor):d.lava;if(d.lo)lavaOn=true;
   for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
-  for(const id in remotes)if(!d.ps[id])delete remotes[id]}
+  if(!d.only)for(const id in remotes)if(!d.ps[id])delete remotes[id]}
  else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
  else if(d.t==='win')winSoon(d.n,d.tm);
  else if(d.t==='tp'){if(mode==='play')dbgTeleport(d.m,1)}
@@ -744,6 +757,7 @@ $('bStart').onclick=()=>hostStart();
 $('muteb').onclick=e=>{e.stopPropagation();auSetMute(!AU.muted)};auSetMute(AU.muted);
 document.addEventListener('click',e=>{if(e.target.closest('button,.sw,.gb')&&e.target.id!=='muteb')setTimeout(()=>sfx('click'),0)});
 $('bLeave').onclick=()=>leave();
+$('rlvM').onclick=()=>rlvStep(-1);$('rlvP').onclick=()=>rlvStep(1);
 $('rbadge').onclick=async()=>{try{await navigator.clipboard.writeText(roomCode);st('已複製邀請碼 '+roomCode)}catch(_){prompt('邀請碼',roomCode)}const r=$('rbadge');r.style.transform='scale(.95)';setTimeout(()=>r.style.transform='',150)};
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
@@ -754,7 +768,7 @@ function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fr
  if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2-PW/2,y:n.y,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
 function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
- d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:10px;opacity:.8"></div></span>';
+ d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0');
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
