@@ -356,16 +356,16 @@ function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（�
 function rlvShow(){const sl=$('rlv'),t=$('rlvT');if(!sl||!t)return;const v=+sl.value||1,z=lvChapter(v).z;t.textContent=`第${v}關`;$('rlvB').style.borderColor=BIOMES[z].edge;$('rlvB').querySelector('small').textContent=`${['🏖️','🌴','🏔️','🌋'][z]} ${BIOMES[z].n}篇`}
 function rlvStep(d){const sl=$('rlv'),n=sl.options.length;sl.value=Math.max(1,Math.min(n,(+sl.value||1)+d));rlvShow()}
 function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){const g=prog();g.l=s;try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
- seed=s;genWorld(seed);P=newPlayer();toastQ=[];lavaFloor=0;if(net){const ix=Math.max(0,lobbyList.findIndex(p=>p.id===myId));if(ix>0)for(const dx of [ix*70,-ix*70,ix*40,-ix*40,ix*18,-ix*18]){const x=P.x+dx;if(x>=0&&x+PW<=W&&!hit(x,P.y,PW,PH)&&hit(x,P.y+PH,PW,3)){P.x=x;break}}}P.ground=true;for(const id in remotes)Object.assign(remotes[id],{a:0,d:0,c:0});checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
+ seed=s;genWorld(seed);P=newPlayer();toastQ=[];lavaFloor=0;checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
- if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-36,36,-72],x0=P.x;
-  L.forEach((p,i)=>{const x=x0+SL[i%4];if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
+ if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-72,72,-144],x0=P.x;
+  L.forEach((p,i)=>{let x=x0+SL[i%4];const okx=x=>x>=4&&x+PW<=W-4&&!hit(x,P.y,PW,PH)&&hit(x,P.y+PH+1,PW,2)&&!L.some((q,k)=>k<i&&Math.abs((q.id===myId?P.x:(remotes[q.id]||{}).x)-x)<50);if(i&&!okx(x))x=[60,-60,96,-96,130,-130,36,-36].map(d=>x0+d).find(okx)??x;if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
   for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
- hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);progT=0;nameT0=performance.now()/1000;bannerZ=0;bannerT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
+ hint=null;mileT=0;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);progT=0;nameT0=performance.now()/1000;bannerZ=0;bannerT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
  const sv=!net&&!window.BOT&&cps()[LV];if(sv&&Array.isArray(sv.e))for(const id of sv.e)eaten.add(id);
  const cp=!net&&!window.BOT&&loadCP(s);if(cp){Object.assign(P,{x:cp.x,y:cp.y});P.camp=cp.camp;checkpoint={x:cp.x,y:cp.y};t0-=cp.el*1000;elapsed=cp.el;camY=P.y-200;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);toast(`第${LV}關 · 從營火繼續（${Math.max(0,-(cp.y+PH)/4)|0} m）`)}
- resize();try{render(0)}catch(e){console.error('first frame',e)}
+ settle();resize();try{render(0)}catch(e){console.error('first frame',e)}
  if(net)try{netTick()}catch(_){}
 }
 function loadCP(lv){const c=cpMeta(lv);return c&&Number.isFinite(c.y)&&!hit(c.x,c.y,PW,PH)?c:null}
@@ -374,6 +374,9 @@ function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 // respawn: never into (or just above) lava. Solo/host lower the lava under the campfire; guests ask the host (host-authoritative, synced via 'ps').
 const LAVA_SAFE=260;let lavaFloor=0;
+function settle(){// put the local player standing still on the ground below (spawn / level change / teleport)
+ for(let d=0;d<=40;d++){if(hit(P.x,P.y+PH+d,PW,1)){if(!hit(P.x,P.y+d,PW,PH))P.y+=d;break}}
+ Object.assign(P,{vx:0,vy:0,cling:0,down:false,ground:true,coy:.1,lt:0,jh:0});JB=0}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0,invT:3,cling:0});P.stam=maxS(P);
  const want=P.y+PH+LAVA_SAFE;if(lavaOn&&lava<want){lava=want;if(net&&!isHost){lavaFloor=want;send({t:'lavaLow',y:want})}else if(net&&isHost)for(const id in conns)conns[id].send({t:'ps',ps:{},lava,lo:lavaOn,only:1})}
  toast(lavaOn?'於營火處重生（熔岩退後了，快爬！）':'於營火處重生')}
@@ -395,7 +398,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  const nearCamp=P.ground?camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<3&&(()=>{const r=hit(P.x,P.y+PH,PW,2);return r&&c.x>=r.x-4&&c.x<=r.x+r.w+4})()):null;
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
  if(nearCamp&&P.camp!==nearCamp.k&&nearCamp.y-PH-1<checkpoint.y-1){sfx('camp');flash(nearCamp.x,nearCamp.y-8,'#ffc040');puff(nearCamp.x,nearCamp.y-8,'#ffcf5a',14,90,3);P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
- if(P.y<bestY-10){bestY=P.y;progT=elapsed;const mi=Math.floor(-(P.y+PH)/200);if(mi>mile){if(mile>=0&&mi>0)toast(`🏔 ${mi*50}m！`);mile=mi}}
+ if(P.y<bestY-10){bestY=P.y;progT=elapsed;const mi=Math.floor(-(P.y+PH)/200);if(mi>mile){if(mile>=0&&mi>0){mileTxt=`🏔 ${mi*50}m！`;mileT=1.8}mile=mi}}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
  if(hint&&P.ground&&!P.cling&&!P.down){const n=standNode();if(n&&n!==hint.n)makeHint(1)}// re-target whenever the ledge under the player changes (e.g. after a fall)
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
@@ -423,7 +426,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  const vy=P.vy;moveY(dt);
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
  // food
- for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
+ if(P.tpG>0)P.tpG-=dt;else for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
  // lava
  if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+290;toast('熔岩開始上漲！快爬！')}
  if(lavaOn&&(!net||isHost))lava-=dt*(2.2+DIFF*3);
@@ -445,7 +448,7 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 
 
 // ---------- hint ----------
-let hint=null,bestY=0,progT=0,mile=-1;
+let hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileTxt='',mileT=0;
 function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
  if(!path||!path.length){if(quiet)hint=null;else toast('先站穩在平台上，再按「？」');return}
@@ -458,10 +461,14 @@ function makeHint(quiet){
  hint={r:t.r,tx,ty:t.r.y,e,gy:n.y+PH,sy:P.y,reach:1,n};hintPhase()}
 // hint text/arrow are derived from the same validated edge every frame, so they always agree
 function hintPhase(){const h=hint;if(!h||!h.e)return;const e=h.e,D=d=>d<0?'左':'右',need=e.sx-P.x,at=Math.abs(need)<=8;h.mx=e.sx+6;
- if(e.run){const dxr=h.tx-(P.x+6);if((e.sx-P.x)*e.dir<24){h.walk=true;h.mx=e.sx-e.dir*32+6;h.text=`先往${D(-e.dir)}退到黃色標記處`}else{h.walk=false;h.text=`往${D(e.dir)}助跑，在黃色標記處起跳`}}
- else if(!at){h.walk=true;h.text=`先往${D(need)}走到黃色標記處`}
+ const jdx=h.tx-(e.sx+6),jdy=h.ty-h.gy,far=Math.abs(jdx)>100,high=jdy<-38,wallB=e.dir&&(e.sx<=2||e.sx>=W-PW-2||!!hit(e.sx-e.dir*2,h.gy-PH,PW,PH-2));
+ const kind=Math.abs(jdx)<=14&&!e.run?'up':e.run?(far?'long':high?'runhigh':'run'):e.rel<1e3?'tap':high?'high':Math.abs(jdx)>60?'wide':'hop';h.kind=kind;
+ const goal={up:'原地往上跳',long:'長助跑跳',runhigh:'助跑衝上高台',run:'短助跑跳',tap:'小跳',high:'跳上高台',wide:'跳過缺口',hop:'小跳上去'}[kind];
+ if(e.run){if((e.sx-P.x)*e.dir<24){h.walk=true;h.mx=e.sx-e.dir*32+6;h.text=far?`長助跑：先往${D(-e.dir)}退到黃色標記處`:kind==='runhigh'?`這層很高：先往${D(-e.dir)}退一點再助跑`:`先往${D(-e.dir)}退一點，準備${goal}`}
+  else{h.walk=false;h.text=far?`按住「${D(e.dir)}」全速衝，到標記處起跳`:kind==='runhigh'?`往${D(e.dir)}加速，在標記處起跳衝上去`:`往${D(e.dir)}跑兩步，在標記處起跳`}}
+ else if(!at){h.walk=true;h.text=`先往${D(need)}走到黃色標記處，準備${goal}`}
  else{h.walk=false;const dx=h.tx-(P.x+6),dy=h.ty-(P.y+PH),v=(Math.abs(dx)<=14?'往上':(dx<0?'往左':'往右')+(dy<-4?'上':''))+'跳';
-  h.text=v+(e.dir===0?'（不用按方向）':e.rel>1e3?`（按住「${D(e.dir)}」）`:`（起跳後輕點「${D(e.dir)}」）`)}}
+  h.text=(wallB?'背靠牆，':'')+v+(e.dir===0?'（不用按方向）':e.rel>1e3?`（按住「${D(e.dir)}」）`:`（起跳後輕點「${D(e.dir)}」）`)}}
 // ---------- render ----------
 function render(dt){
  const s=CW/W*DPR,vh=CH/(CW/W);
@@ -500,7 +507,7 @@ function render(dt){
   else if(bi===2){ctx.fillStyle='#fff';for(let x=r.x+5;x<r.x+r.w-5;x+=11){ctx.beginPath();ctx.arc(x,r.y+5,2,0,Math.PI);ctx.fill()}}
   if(biomeAt(r.y)===1&&r.h<200){ctx.strokeStyle='#2e5a22';ctx.lineWidth=2;ctx.beginPath();for(let x=r.x+6;x<r.x+r.w;x+=14){ctx.moveTo(x,r.y+r.h);ctx.quadraticCurveTo(x+4,r.y+r.h+8,x,r.y+r.h+16)}ctx.stroke()}}
  // peak flag
- {const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y,wv=Math.sin(performance.now()/250)*3;ctx.fillStyle='#444';ctx.fillRect(fx,fy-52,3,52);ctx.fillStyle='#e8433a';ctx.beginPath();ctx.moveTo(fx+3,fy-52);ctx.quadraticCurveTo(fx+16,fy-48+wv,fx+30,fy-46+wv);ctx.quadraticCurveTo(fx+16,fy-40-wv,fx+3,fy-36);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 10.5px sans-serif';ctx.textAlign='center';ctx.fillText('山頂',fx+15,fy-40+wv*.5);ctx.fillStyle='#ffd34a';ctx.beginPath();ctx.arc(fx+1.5,fy-53,2.5,0,7);ctx.fill()}
+ {const fx=PEAK.x+PEAK.w/2+10,fy=PEAK.y,wv=Math.sin(performance.now()/250)*3;ctx.fillStyle='#444';ctx.fillRect(fx,fy-62,3,62);ctx.fillStyle='#e8433a';ctx.beginPath();ctx.moveTo(fx+3,fy-62);ctx.quadraticCurveTo(fx+20,fy-58+wv,fx+38,fy-51+wv);ctx.quadraticCurveTo(fx+20,fy-40-wv,fx+3,fy-40);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('山頂',fx+17,fy-46+wv*.5);ctx.fillStyle='#ffd34a';ctx.beginPath();ctx.arc(fx+1.5,fy-63,2.5,0,7);ctx.fill()}
  const tt=performance.now()/1000;
  for(const c of camps){if(c.y<y0-40||c.y>y1+40)continue;const fl=.85+.15*Math.sin(tt*17+c.x)+.08*Math.sin(tt*31);const gl=ctx.createRadialGradient(c.x,c.y-8,0,c.x,c.y-8,46*fl);gl.addColorStop(0,'rgba(255,170,60,.55)');gl.addColorStop(1,'rgba(255,120,40,0)');ctx.fillStyle=gl;ctx.fillRect(c.x-50,c.y-58,100,100);
   if(Math.random()<dt*14&&parts.length<260)parts.push({x:c.x+(Math.random()-.5)*8,y:c.y-8,vx:(Math.random()-.5)*10,vy:-30-Math.random()*30,l:.5+Math.random()*.4,c:Math.random()<.5?'#ffb43a':'#ff6a1c',s:1.6,ng:1});
@@ -543,7 +550,7 @@ function drawP(x,y,g,ci,f,an,dn,name,me){
  ctx.shadowColor=low?`rgba(255,40,40,${.6+.4*Math.sin(t*12)})`:'rgba(255,255,255,1)';ctx.shadowBlur=(low?12+6*Math.sin(t*12):8)*DPR;
  drawCharacter(ctx,g,ci,an,t,f||1);ctx.restore();
  const na=Math.max(0,Math.min(1,4-(t-nameT0)));y-=PH*(sc-1);
- if(name&&na>0){ctx.globalAlpha=na;ctx.font='bold 10.5px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+8,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-21,tw,14,4):ctx.rect(cx-tw/2,y-21,tw,14);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-10.2);ctx.globalAlpha=1}
+ if(name&&na>0){ctx.globalAlpha=na;ctx.font='bold 12px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+8,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-22,tw,15,4):ctx.rect(cx-tw/2,y-22,tw,15);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-10.5);ctx.globalAlpha=1}
 }
 function hud(){
  ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -574,10 +581,11 @@ function hud(){
  ctx.globalAlpha=1;
  if(bannerT>0){const a=Math.min(1,bannerT*2,(2.8-bannerT)*3),Bz=BIOMES[bannerZ],yb=Math.max(118,CH*.17);ctx.globalAlpha=a;const bg=ctx.createLinearGradient(0,0,CW,0);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(.5,'rgba(10,16,28,.7)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fillRect(0,yb-30,CW,56);ctx.fillStyle=Bz.edge;ctx.fillRect(CW*.2,yb-30,CW*.6,2);ctx.fillRect(CW*.2,yb+24,CW*.6,2);ctx.textAlign='center';ctx.font='900 28px sans-serif';ctx.fillStyle='#fff';ctx.shadowColor=Bz.rock;ctx.shadowBlur=10;ctx.fillText('進入'+Bz.n,CW/2,yb+8);ctx.shadowBlur=0;ctx.globalAlpha=1}
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
+ if(mileT>0&&mode==='play'&&!winPend){mileT-=dt;ctx.save();ctx.globalAlpha=Math.min(1,mileT*2);ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.55)';const my=CH*.3-(1.8-mileT)*14;ctx.strokeText(mileTxt,CW/2,my);ctx.fillStyle='#ffe25a';ctx.fillText(mileTxt,CW/2,my);ctx.restore()}
  if(hint&&mode==='play'&&!winPend){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
-  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';const hy=bannerT>0?Math.max(118,CH*.17)+34:124;ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124,net?roomB+8:0);{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);
   if(syT<60||syT>CH-215){const ey=syT<60?(bannerT>0?Math.max(118,CH*.17)+76:166):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
- if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=CW-pw-30,py=y+40;
+ if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+40;roomB=py+20+L.length*16;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*16);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
   L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+30+i*16;ctx.fillStyle=COLORS[p.ci]||'#fff';ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
@@ -708,7 +716,7 @@ function applySnap(d){remotes={};startGame(d.seed);
  for(const id of d.eaten)eaten.add(id);lava=d.lava;lavaOn=!!d.lo;t0=performance.now()-d.el*1000;elapsed=d.el;
  checkpoint=d.cp;P.camp=d.camp;
  for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign({dx:v.x,dy:v.y},v)}
- const sp=findSpawn(d.h,Object.values(remotes));Object.assign(P,{x:sp.x,y:sp.y,cling:sp.c,vx:0,vy:0,face:d.h.f||1});bestY=P.y;camY=P.y-200;
+ const sp=findSpawn(d.h,Object.values(remotes));Object.assign(P,{x:sp.x,y:sp.y,cling:sp.c,vx:0,vy:0,face:d.h.f||1});if(!sp.c)settle();netTick();bestY=P.y;camY=P.y-200;
  toast('已加入遊戲，出現在房主旁邊！')}
 function netTick(){
  if(isHost)flushSnaps();
@@ -771,7 +779,7 @@ $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m});const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
- if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2-PW/2,y:n.y,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
+ if(!best)return;const n=best.n;const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;let tx=(n.a+n.b)/2-PW/2+[0,-40,40,-80][ix%4],bs=-1;for(let x=n.a;x<=n.b;x+=4){const fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(x+6))));const sc=Math.min(fd,40)*3-Math.abs(x-tx);if(sc>bs){bs=sc;P.x=x}}Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
 function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
  d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
@@ -779,7 +787,7 @@ if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cs
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth='230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
- $('dInf').onchange=e=>{DBG_INF=e.target.checked};
+ $('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
  const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
   if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
