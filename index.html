@@ -179,7 +179,7 @@ function drawCharacter(ctx,gender,colorIndex,anim,frame,facing){
   const pt=Math.sin(t*8)*1.5*(anim==='walk'?1:0.3);ctx.beginPath();ctx.ellipse(-6.5,-17+pt,2,4.5,0.3,0,7);ctx.fill();ctx.fillStyle=col;ctx.fillRect(-6,-21,2,2)}
  else{ctx.fillStyle='#2b2118';ctx.beginPath();ctx.arc(0,-20.5,4.6,Math.PI*1.02,Math.PI*1.98);ctx.fill();ctx.fillRect(-4.6,-21,2,2.5)}
  ctx.restore()}
-function animOf(p){if(p.down)return'fall';if(p.cling)return'climb';if(!p.ground)return p.vy<0?'jump':'fall';return Math.abs(p.vx)>15?'walk':'idle'}
+function animOf(p){if(p.down)return'fall';if(p.cling)return'climb';if(!p.ground&&!(p===P&&p.vy>=0&&p.vy<60&&hit(p.x,p.y+PH,PW,1)))return p.vy<0?'jump':'fall';return Math.abs(p.vx)>15?'walk':'idle'}
 const ANIMS=['idle','walk','jump','climb','fall'];
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
@@ -236,6 +236,11 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  if(DIFF<.35&&NAV.path){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
   if(rects.some(q=>q!==rects[0]&&q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
   rects.push({x,y,w,h:10,ex:1,catch:1});navInit();const res=navSearch(nodeAt(rects[0],W/2-6));if(res.ok&&res.path.length<=L0){NAV.path=res.path;added++}else rects.pop()}}navInit();NAV.path=navSearch(nodeAt(rects[0],W/2-6)).path}
+ // opening terrain varies by level (step / wall / stair / plain beach); kept only if the validated route stays intact
+ if(NAV.path&&LV>=2&&LV%4){const p1=path[1]||{x:W/2,w:0},rt=p1.x+p1.w/2<W/2,bx=rt?194:118,k=LV%4;
+  const op=k===1?[{x:bx+(rt?0:8),y:-22,w:40,h:22}]:k===2?[{x:rt?bx+32:bx,y:-74,w:16,h:48}]:[{x:rt?bx:bx+22,y:-16,w:24,h:16},{x:rt?bx+24:bx-2,y:-34,w:24,h:34}];
+  if(!op.some(o=>rects.some(q=>q!==rects[0]&&!q.side&&o.x<q.x+q.w+PW&&o.x+o.w>q.x-PW&&o.y-PH-4<q.y+q.h&&o.y+o.h>q.y))){const n0=rects.length;for(const o of op)rects.push(Object.assign(o,{ex:1,op:1}));navInit();const res=navSearch(nodeAt(rects[0],W/2-6));
+  if(res.ok)NAV.path=res.path;else{rects.length=n0;navInit();NAV.path=navSearch(nodeAt(rects[0],W/2-6)).path}}}
  if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
@@ -531,7 +536,7 @@ function render(dt){
   if(len>6){ctx.strokeStyle='#ffe94a';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x0+ux*16,y0+uy*16);const ex=x0+ux*(16+len),ey=y0+uy*(16+len);ctx.lineTo(ex,ey);ctx.stroke();
    ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex+ux*7,ey+uy*7);ctx.lineTo(ex-uy*5,ey+ux*5);ctx.lineTo(ex+uy*5,ey-ux*5);ctx.fill()}}
  {const zz=biomeAt(P.y);if(zz>bannerZ){bannerZ=zz;bannerT=2.8}else if(zz<bannerZ&&bannerT<=0)bannerZ=Math.max(zz,bannerZ);bannerT-=dt}
- hud();
+ hud(dt);
 }
 function rrect(x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h)}
 const TEX={};function texOf(b){if(TEX[b])return TEX[b];const B=BIOMES[b],c=document.createElement('canvas');c.width=c.height=24;const g=c.getContext('2d');g.fillStyle=B.rock;g.fillRect(0,0,24,24);
@@ -552,7 +557,7 @@ function drawP(x,y,g,ci,f,an,dn,name,me){
  const na=Math.max(0,Math.min(1,4-(t-nameT0)));y-=PH*(sc-1);
  if(name&&na>0){ctx.globalAlpha=na;ctx.font='bold 12px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+8,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-22,tw,15,4):ctx.rect(cx-tw/2,y-22,tw,15);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-10.5);ctx.globalAlpha=1}
 }
-function hud(){
+function hud(dt=0){
  ctx.setTransform(DPR,0,0,DPR,0,0);
  const t=performance.now()/1000,bw=Math.min(260,CW-96),x=12,y=12,MS=maxS(P),low=P.stam<MS*.2,fl=low&&Math.sin(t*14)>0;
  ctx.fillStyle='rgba(10,16,28,.55)';rrect(x-6,y-6,bw+12,58,10);ctx.fill();
@@ -583,7 +588,7 @@ function hud(){
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(mileT>0&&mode==='play'&&!winPend){mileT-=dt;ctx.save();ctx.globalAlpha=Math.min(1,mileT*2);ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.55)';const my=CH*.3-(1.8-mileT)*14;ctx.strokeText(mileTxt,CW/2,my);ctx.fillStyle='#ffe25a';ctx.fillText(mileTxt,CW/2,my);ctx.restore()}
  if(hint&&mode==='play'&&!winPend){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
-  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124,net?roomB+8:0);{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124,net?roomB+8:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);for(const id of['toast','dbg']){const el=$(id);if(!el||(id==='toast'&&!(toastT>0&&el.textContent)))continue;const r=el.getBoundingClientRect();if(!r.height||!r.width)continue;const t=(r.top-cr.top)*sc,bt=(r.bottom-cr.top)*sc,l=(r.left-cr.left)*sc,rr=(r.right-cr.left)*sc;if(rr>CW/2-tw/2&&l<CW/2+tw/2&&bt>hy-4&&t<hy+30)hy=bt+6}}{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);
   if(syT<60||syT>CH-215){const ey=syT<60?(bannerT>0?Math.max(118,CH*.17)+76:166):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
  if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+40;roomB=py+20+L.length*16;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*16);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
@@ -597,8 +602,9 @@ function hud(){
 let last=performance.now(),netT=0;
 function loop(now,fb){if(!fb){requestAnimationFrame(loop);lastRAF=performance.now()}
  if(innerWidth&&innerHeight&&(CW!==innerWidth||CH!==innerHeight||!cv.width))resize();
- const dt=Math.max(0,Math.min(.033,(now-last)/1000));last=now;
- if(mode==='play'&&P){if(![P.x,P.y,P.vx,P.vy].every(Number.isFinite)){console.warn('bad player state, reset');Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0})}if(!window.BOT)try{update(dt)}catch(e){console.error('update',e)}}
+ // one clock for rAF and the fallback timer: mixing rAF frame stamps with performance.now() gave dt=0 frames, which left P.ground=false (fall/tumble pose while idle)
+ const tn=performance.now(),dt=Math.max(0,Math.min(.033,(tn-last)/1000));last=tn;
+ if(mode==='play'&&P){if(![P.x,P.y,P.vx,P.vy].every(Number.isFinite)){console.warn('bad player state, reset');Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0})}if(!window.BOT&&dt>.0005)try{update(dt)}catch(e){console.error('update',e)}}
  for(const k in K)prev[k]=K[k];
  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.ng?-20:300)*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);for(const F of flashes)F.t-=dt;flashes=flashes.filter(F=>F.t>0);for(const F of floats){F.t-=dt;F.y-=28*dt}floats=floats.filter(F=>F.t>0);if(hurt){hurt.t-=dt;if(hurt.t<=0)hurt=null}
  for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
@@ -708,7 +714,7 @@ function findSpawn(h,oth=[]){
  const ok=(x,y)=>x>=0&&x+PW<=W&&!hit(x,y,PW,PH)&&y+PH<lava-6&&!oth.some(o=>Math.abs(o.x-x)<PW&&Math.abs(o.y-y)<PH);
  const ground=(x,y)=>{for(let d=0;d<=60;d++){if(!ok(x,y+d))return null;if(hit(x,y+d+1,PW,PH))return y+d}return null};
  const order=h.f>0?[-1,1]:[1,-1];
- for(const k of[1,2,3,4,6])for(const s of order)for(const dy of[0,-10,-20,-35,10]){const x=h.x+s*k*(PW+2),y=h.y+dy;if(!ok(x,y))continue;const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}
+ const far=x=>Math.abs(x-h.x)>=50&&!oth.some(o=>Math.abs(o.x-x)<50);for(const k of[60,72,90,110,130,160])for(const s of order)for(const dy of[0,-10,-20,-35,10]){const x=h.x+s*k,y=h.y+dy;if(!ok(x,y)||!far(x))continue;const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}
  if(h.c){for(const dy of[0,-PH-2,PH+2]){const y=h.y+dy,x=h.x;if(ok(x,y)&&hit(h.c<0?x-2:x+PW,y+2,2,PH-4))return{x,y,c:h.c}}}
  for(let r=1;r<12;r++)for(const s of[-1,1])for(const dy of[0,-r*12,r*12]){const x=h.x+s*r*10,y=h.y+dy;if(ok(x,y)){const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}}
  return{x:h.x,y:h.y,c:0}}
@@ -779,11 +785,13 @@ $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m});const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
- if(!best)return;const n=best.n;const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;let tx=(n.a+n.b)/2-PW/2+[0,-40,40,-80][ix%4],bs=-1;for(let x=n.a;x<=n.b;x+=4){const fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(x+6))));const sc=Math.min(fd,40)*3-Math.abs(x-tx);if(sc>bs){bs=sc;P.x=x}}Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
+ if(!best)return;const n=best.n;const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;let tx=(n.a+n.b)/2-PW/2+[0,-40,40,-80][ix%4],bs=-1;for(let x=n.a;x<=n.b;x+=4){const fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(x+6))));const sc=Math.min(fd,40)*3-Math.abs(x-tx);if(sc>bs){bs=sc;P.x=x}}Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
 function dbgZone(b){if(b>NB-1){toast(`本關只有 ${NB} 區`);return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
  d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
- document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0');
+ document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>{b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0';b.tabIndex=-1;b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>b.blur())});
+ // keyboard never activates debug controls (Space after a click used to re-press 跳關/傳送); keys still reach the game
+ addEventListener('keydown',e=>{const t=e.target;if(t&&t.closest&&t.closest('#dbg')&&t.tagName!=='INPUT'){t.blur();if(e.key===' '||e.key==='Enter')e.preventDefault()}},true);d.addEventListener('change',e=>{if(e.target.type==='checkbox')e.target.blur()});
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth='230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
