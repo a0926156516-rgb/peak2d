@@ -43,6 +43,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <div class="b" data-k="jump"  style="right:8px;bottom:40px;width:88px;height:88px;font-size:26px">跳</div>
 </div>
 <button id="hintb" aria-label="提示">？</button>
+<button id="muteb" aria-label="靜音" style="position:fixed;right:12px;bottom:212px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.45);color:#fff;font-size:20px;z-index:5;padding:0;min-width:0">🔊</button>
 <div id="menu" class="ov">
  <h1>攀岩</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
  <input id="nick" maxlength="8" placeholder="暱稱">
@@ -233,6 +234,28 @@ const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
 function toast(s){$('toast').textContent=s;toastT=2.5}
 function puff(x,y,c,n,sp=80){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*sp,vy:-Math.random()*sp,l:.6+Math.random()*.4,c})}
 
+
+// ---------- audio (Web Audio; failures are silent) ----------
+const AU={ctx:null,buf:{},muted:false,master:null,loops:{},stepT:0,lastStep:0};
+try{AU.muted=localStorage.pj_mute==='1'}catch(_){}
+const AFILES={bgm:'bgm_hiking_loop',amb:'ambience_mountain',step:'sfx_footstep_single',pick:'sfx_pickup',camp:'sfx_checkpoint',win:'sfx_summit_fanfare',click:'sfx_ui_click'};
+const AVOL={bgm:.22,amb:.18,step:.35,pick:.7,camp:.75,win:.8,click:.5};
+function auUnlock(){try{if(!AU.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;AU.ctx=new C();AU.master=AU.ctx.createGain();AU.master.gain.value=AU.muted?0:1;AU.master.connect(AU.ctx.destination);
+  const b=AU.ctx.createBuffer(1,1,22050),s=AU.ctx.createBufferSource();s.buffer=b;s.connect(AU.master);s.start(0);
+  for(const k in AFILES)fetch('audio/'+AFILES[k]+'.mp3').then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(a=>new Promise((ok,no)=>AU.ctx.decodeAudioData(a,ok,no))).then(d=>{AU.buf[k]=d;if((k==='bgm'||k==='amb')&&mode==='play')auLoop(k)}).catch(()=>{})}
+ if(AU.ctx.state==='suspended'&&!document.hidden)AU.ctx.resume()}catch(_){}}
+['pointerdown','touchend','keydown','click'].forEach(t=>addEventListener(t,auUnlock,{capture:true,passive:true}));
+function sfx(k,v=1){try{if(!AU.ctx||!AU.buf[k]||AU.muted)return;const s=AU.ctx.createBufferSource(),g=AU.ctx.createGain();s.buffer=AU.buf[k];g.gain.value=AVOL[k]*v;s.connect(g);g.connect(AU.master);s.start();return s}catch(_){}}
+function auLoop(k){try{if(!AU.ctx||!AU.buf[k]||AU.loops[k])return;const s=AU.ctx.createBufferSource(),g=AU.ctx.createGain();s.buffer=AU.buf[k];s.loop=true;g.gain.value=AVOL[k];s.connect(g);g.connect(AU.master);s.start();AU.loops[k]=s}catch(_){}}
+function auMusic(on){if(on){auLoop('bgm');auLoop('amb')}else for(const k in AU.loops){try{AU.loops[k].stop()}catch(_){}delete AU.loops[k]}}
+function auSetMute(m){AU.muted=m;try{localStorage.pj_mute=m?'1':'0'}catch(_){}const b=document.getElementById('muteb');if(b)b.textContent=m?'🔇':'🔊';if(AU.master)AU.master.gain.value=m?0:1}
+document.addEventListener('visibilitychange',()=>{try{if(!AU.ctx)return;document.hidden?AU.ctx.suspend():AU.ctx.resume()}catch(_){}});
+// footsteps: local player only, one at a time with a cadence
+function auSteps(dt){if(!P||!AU.ctx)return;const now=AU.ctx.currentTime;
+ if(P.ground&&!AU.wasG&&now-AU.lastStep>.12){sfx('step',.8);AU.lastStep=now}
+ else if(P.ground&&Math.abs(P.vx)>40&&now-AU.lastStep>.34){sfx('step',.6);AU.lastStep=now}
+ else if(P.cling&&Math.abs(P.vy)>20&&now-AU.lastStep>.5){sfx('step',.35);AU.lastStep=now}
+ AU.wasG=P.ground}
 // ---------- input ----------
 const K={},prev={};
 const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab'};
@@ -257,7 +280,7 @@ function renderLv(){const n=nextLv();$('bSolo').textContent=`繼續 · 第${n}�
  const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n)}}
 function startGame(s){
  seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
- t0=performance.now();elapsed=0;camY=P.y-200;mode='play';
+ t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
  if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-36,36,-72],x0=P.x;
   L.forEach((p,i)=>{const x=x0+SL[i%4];if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
   for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
@@ -266,21 +289,21 @@ function startGame(s){
 }
 function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
-function win(name,time){if(mode!=='play')return;mode='end';$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
+function win(name,time){if(mode!=='play')return;mode='end';auMusic(false);sfx('win');$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
  $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
  $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
 const esc=s=>String(s).replace(/[<>&"]/g,c=>'&#'+c.charCodeAt(0)+';');
 
 function touchWall(d){return hit(d<0?P.x-2:P.x+PW,P.y+2,2,PH-4)}
-function update(dt){
+function update(dt){try{auSteps(dt)}catch(_){}
  elapsed=window.BOT?BOT.t:(performance.now()-t0)/1000;
  const b=biomeAt(P.y);
  // hunger & cold
  P.hun=Math.min(45,P.hun+dt*(.15+.2*DIFF));
  const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
- if(nearCamp&&P.camp!==nearCamp.b){P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
+ if(nearCamp&&P.camp!==nearCamp.b){if(P.camp!==-1||nearCamp.b>0)sfx('camp');P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
  if(P.y<bestY-10){bestY=P.y;progT=elapsed}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
@@ -316,7 +339,7 @@ function update(dt){
 }
 function moveY(dt){P.y+=P.vy*dt;P.ground=false;const r=hit(P.x,P.y,PW,PH);if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true}else P.y=r.y+r.h;P.vy=0}}
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;
- if(mine){
+ if(mine){sfx('pick');
   if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
   else if(Math.random()<.6){P.inj=Math.max(0,P.inj-20);P.hun=Math.max(0,P.hun-10);P.stam=maxS(P);toast('好蘑菇！傷勢恢復、體力全滿');puff(f.x,f.y,'#6f6',10)}
   else{P.inj=Math.min(80,P.inj+15);P.stam*=.5;toast('毒蘑菇！頭好暈…');puff(f.x,f.y,'#a4f',10)}
@@ -544,7 +567,7 @@ function clientHandle(d){
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
-function leave(keepStatus){connGen++;clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
+function leave(keepStatus){connGen++;auMusic(false);clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('');renderPickers()}
 function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
@@ -563,6 +586,8 @@ $('hintb').onclick=()=>{if(mode==='play'&&P&&!P.down){makeHint();progT=elapsed}}
 $('bRetry').onclick=()=>lastAction&&lastAction();
 $('bJoin').onclick=()=>join($('code').value);
 $('bStart').onclick=()=>hostStart();
+$('muteb').onclick=e=>{e.stopPropagation();auSetMute(!AU.muted)};auSetMute(AU.muted);
+document.addEventListener('click',e=>{if(e.target.closest('button,.sw,.gb')&&e.target.id!=='muteb')setTimeout(()=>sfx('click'),0)});
 $('bLeave').onclick=()=>leave();
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
