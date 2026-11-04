@@ -405,17 +405,42 @@ function host(){
 function hostHandle(from,d,self,c){
  if(self){if(d.t==='win')win(d.n,d.tm);return}
  if(d.t==='hello'){
-  if(Object.keys(lobby).length>=4||mode!=='room'){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
+  if(lobby[from]&&mode==='play'){pendingSnap.add(from);flushSnaps();return}
+  if(Object.keys(lobby).length>=4||(mode!=='room'&&mode!=='play')){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
+  const mid=mode==='play';
   conns[from]=c;const sr=serverRoster&&lobbyList.find(p=>p.id===from);let ci,g=d.g==='f'?'f':'m';
   if(sr){ci=sr.ci;g=sr.g}else{const used=Object.values(lobby).map(v=>v.ci);ci=(d.c>=0&&d.c<COLORS.length&&!used.includes(d.c))?d.c:COLORS.findIndex((_,i)=>!used.includes(i))}
   lobby[from]={n:String(d.n).slice(0,8),g,ci,col:COLORS[ci]};bcLobby();
+  if(mid){pendingSnap.add(from);flushSnaps();const n=lobby[from].n;for(const id in conns)if(id!==from)conns[id].send({t:'pjoin',n});toast(`${n} 加入了遊戲`)}
  }else if(d.t==='pick'){const L=lobby[from];if(!L)return;if(d.g)L.g=d.g==='f'?'f':'m';
   if(d.c!=null&&!Object.entries(lobby).some(([id,v])=>id!==from&&v.ci===d.c)&&d.c>=0&&d.c<COLORS.length){L.ci=d.c;L.col=COLORS[d.c]}bcLobby();
  }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,g:lobby[from].g,ci:lobby[from].ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
 }
+let pendingSnap=new Set();
+// mid-game join: send full snapshot once host is standing (not respawning)
+function flushSnaps(){if(!isHost||mode!=='play'||!P||P.down||!pendingSnap.size)return;
+ const ps={[myId]:{x:P.x,y:P.y,f:P.face,c:P.cling,d:0,a:ANIMS.indexOf(animOf(P)),n:myName,g:myGender,ci:myCI}};
+ for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,a:r.a,n:r.n,g:r.g,ci:r.ci}}
+ const snap={t:'snap',seed,lava,lo:lavaOn,eaten:[...eaten],el:elapsed,cp:checkpoint,camp:P.camp,h:{x:P.x,y:P.y,f:P.face,c:P.cling,gr:P.ground},ps};
+ for(const id of pendingSnap)if(conns[id])conns[id].send(snap);pendingSnap.clear()}
+function findSpawn(h,oth=[]){
+ const ok=(x,y)=>x>=0&&x+PW<=W&&!hit(x,y,PW,PH)&&y+PH<lava-6&&!oth.some(o=>Math.abs(o.x-x)<PW&&Math.abs(o.y-y)<PH);
+ const ground=(x,y)=>{for(let d=0;d<=60;d++){if(!ok(x,y+d))return null;if(hit(x,y+d+1,PW,PH))return y+d}return null};
+ const order=h.f>0?[-1,1]:[1,-1];
+ for(const k of[1,2,3,4,6])for(const s of order)for(const dy of[0,-10,-20,-35,10]){const x=h.x+s*k*(PW+2),y=h.y+dy;if(!ok(x,y))continue;const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}
+ if(h.c){for(const dy of[0,-PH-2,PH+2]){const y=h.y+dy,x=h.x;if(ok(x,y)&&hit(h.c<0?x-2:x+PW,y+2,2,PH-4))return{x,y,c:h.c}}}
+ for(let r=1;r<12;r++)for(const s of[-1,1])for(const dy of[0,-r*12,r*12]){const x=h.x+s*r*10,y=h.y+dy;if(ok(x,y)){const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}}
+ return{x:h.x,y:h.y,c:0}}
+function applySnap(d){remotes={};startGame(d.seed);
+ for(const id of d.eaten)eaten.add(id);lava=d.lava;lavaOn=!!d.lo;t0=performance.now()-d.el*1000;elapsed=d.el;
+ checkpoint=d.cp;P.camp=d.camp;
+ for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign({dx:v.x,dy:v.y},v)}
+ const sp=findSpawn(d.h,Object.values(remotes));Object.assign(P,{x:sp.x,y:sp.y,cling:sp.c,vx:0,vy:0,face:d.h.f||1});bestY=P.y;camY=P.y-200;
+ toast('已加入遊戲，出現在房主旁邊！')}
 function netTick(){
+ if(isHost)flushSnaps();
  const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0,a:ANIMS.indexOf(animOf(P))};
  if(isHost){const ps={[myId]:{...me,n:myName,g:myGender,ci:myCI}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,a:r.a,n:r.n,g:r.g,ci:r.ci}}
   for(const id in conns)conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
@@ -425,7 +450,7 @@ function join(code,auto){
  getNick();code=String(code).replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
  if(!auto)reconnTried=false;lastAction=()=>join(code);isHost=false;roomCode=code;
  serverRoster=false;connect({t:'join',code,name:myName,g:myGender,c:myCI},m=>{
-  if(m.t==='joined'){clearTimeout(joinTimer);myId=m.id;net=true;remotes={};hostConn={open:true,send:d=>wsend({t:'msg',d})};hostConn.send({t:'hello',n:myName,g:myGender,c:myCI});openRoom()}
+  if(m.t==='joined'){clearTimeout(joinTimer);myId=m.id;net=true;remotes={};hostConn={open:true,send:d=>wsend({t:'msg',d})};hostConn.send({t:'hello',n:myName,g:myGender,c:myCI});if(m.started)st('加入進行中的遊戲…');else openRoom()}
   else if(m.t==='host-left'){net=false;remotes={};toast('房主離開了，房間已關閉');if(mode==='room'){leave(true);st('房主離開了，房間已關閉')}else st('房主離開了');try{ws&&ws.close()}catch(_){}ws=null}
   else if(m.t==='msg')clientHandle(m.d);
  });
@@ -434,6 +459,8 @@ function clientHandle(d){
  if(d.t==='lobby'){if(!serverRoster)showLobby(d.pl)}
  else if(d.t==='full'){net=false;leave(true);st('房間已滿或已開始')}
  else if(d.t==='start')startGame(d.seed);
+ else if(d.t==='snap')applySnap(d);
+ else if(d.t==='pjoin')toast(`${d.n} 加入了遊戲`);
  else if(d.t==='ps'){if(mode!=='play')return;lava=d.lava;if(d.lo)lavaOn=true;
   for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
   for(const id in remotes)if(!d.ps[id])delete remotes[id]}

@@ -54,10 +54,9 @@ function onMessage(c, raw) {
       const r = rooms.get(code);
       if (!r) return send(c, { t: "error", e: "notfound" });
       if (r.players.size >= MAX) return send(c, { t: "error", e: "full" });
-      if (r.started) return send(c, { t: "error", e: "started" });
       if (c.room) leave(c);
       c.name = name; c.g = gender(m.g); c.color = assignColor(r, c, m.c); c.room = r; r.players.set(c.id, c);
-      send(c, { t: "joined", code, id: c.id, hostId: r.host.id });
+      send(c, { t: "joined", code, id: c.id, hostId: r.host.id, started: r.started });
       send(r.host, { t: "peer-join", id: c.id, name });
       return bcRoster(r);
     }
@@ -74,6 +73,7 @@ function onMessage(c, raw) {
       c.g = gender(m.g); return bcRoster(r);
     }
     case "started": if (c.room && c.room.host === c) c.room.started = true; return;
+    case "lobbyBack": if (c.room && c.room.host === c) c.room.started = false; return;
     case "leave": return leave(c);
     case "kick": {
       const r = c.room; if (!r || r.host !== c) return;
