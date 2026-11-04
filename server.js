@@ -4,6 +4,17 @@ const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 
 const MAX = 4;
+const NCOL = 4; // must match COLORS.length in index.html
+const roster = (r) => [...r.players.values()].map((p) => ({ id: p.id, n: p.name, g: p.g, c: p.color, h: p === r.host ? 1 : 0 }));
+const bcRoster = (r) => { const pl = roster(r); for (const p of r.players.values()) send(p, { t: "roster", pl }); };
+const takenBy = (r, col, except) => [...r.players.values()].find((p) => p !== except && p.color === col);
+function assignColor(r, c, want) {
+  want = Number(want);
+  if (Number.isInteger(want) && want >= 0 && want < NCOL && !takenBy(r, want, c)) return want;
+  for (let i = 0; i < NCOL; i++) if (!takenBy(r, i, c)) return i;
+  return 0;
+}
+const gender = (g) => (g === "f" ? "f" : "m");
 const rooms = new Map(); // code -> {code, host, players:Map, started}
 const clients = new Set();
 const send = (c, o) => { try { if (c.ws.readyState === 1) c.ws.send(JSON.stringify(o)); } catch {} };
@@ -18,7 +29,7 @@ function leave(c) {
   if (r.host === c) {
     rooms.delete(r.code);
     for (const p of r.players.values()) { send(p, { t: "host-left" }); p.room = null; try { p.ws.close(); } catch {} }
-  } else send(r.host, { t: "peer-leave", id: c.id });
+  } else { send(r.host, { t: "peer-leave", id: c.id }); bcRoster(r); }
 }
 function onMessage(c, raw) {
   if (raw.length > 64000) return;
@@ -33,8 +44,9 @@ function onMessage(c, raw) {
       const code = newCode(); if (!code) return send(c, { t: "error", e: "nocode" });
       c.name = name;
       const r = { code, host: c, players: new Map([[c.id, c]]), started: false };
-      rooms.set(code, r); c.room = r;
-      return send(c, { t: "created", code, id: c.id });
+      rooms.set(code, r); c.room = r; c.g = gender(m.g); c.color = assignColor(r, c, m.c);
+      send(c, { t: "created", code, id: c.id });
+      return bcRoster(r);
     }
     case "join": {
       const code = String(m.code ?? "");
@@ -44,9 +56,22 @@ function onMessage(c, raw) {
       if (r.players.size >= MAX) return send(c, { t: "error", e: "full" });
       if (r.started) return send(c, { t: "error", e: "started" });
       if (c.room) leave(c);
-      c.name = name; c.room = r; r.players.set(c.id, c);
+      c.name = name; c.g = gender(m.g); c.color = assignColor(r, c, m.c); c.room = r; r.players.set(c.id, c);
       send(c, { t: "joined", code, id: c.id, hostId: r.host.id });
-      return send(r.host, { t: "peer-join", id: c.id, name });
+      send(r.host, { t: "peer-join", id: c.id, name });
+      return bcRoster(r);
+    }
+    case "pickColor": {
+      const r = c.room; if (!r) return;
+      const want = Number(m.c);
+      if (!Number.isInteger(want) || want < 0 || want >= NCOL) return;
+      const t = takenBy(r, want, c);
+      if (t) return send(c, { t: "colorTaken", c: want, by: t.name, pl: roster(r) });
+      c.color = want; return bcRoster(r);
+    }
+    case "pickGender": {
+      const r = c.room; if (!r) return;
+      c.g = gender(m.g); return bcRoster(r);
     }
     case "started": if (c.room && c.room.host === c) c.room.started = true; return;
     case "leave": return leave(c);
@@ -75,7 +100,7 @@ const server = http.createServer((req, res) => {
 });
 const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 64 * 1024 });
 wss.on("connection", (ws) => {
-  const c = { ws, id: rid(), name: "", room: null, alive: true };
+  const c = { ws, id: rid(), name: "", room: null, alive: true, g: "m", color: 0 };
   clients.add(c);
   ws.on("message", (data) => { try { onMessage(c, data.toString()); } catch (e) { console.error(e); } });
   ws.on("pong", () => { c.alive = true; });

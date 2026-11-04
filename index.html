@@ -24,6 +24,12 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #hintb{position:fixed;left:12px;top:78px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:18px;z-index:3;padding:0;min-width:0}
 #ctl.hide~#hintb{display:none}
 #toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
+.cp{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0}
+.cp .gb{min-width:72px;padding:8px 10px;font-size:16px;background:#3d6b8c;color:#fff;border:2px solid transparent}
+.cp .gb.sel{background:#f2a33a;color:#2a1600;border-color:#fff}
+.cp .sw{min-width:0;width:48px;height:40px;padding:0;font-size:11px;color:#fff;text-shadow:0 1px 2px #000;border:3px solid transparent;overflow:hidden}
+.cp .sw.sel{border-color:#fff;box-shadow:0 0 0 2px #000 inset}
+.cp .sw.tk{filter:grayscale(.85) brightness(.55);cursor:not-allowed}
 </style></head><body>
 <canvas id="c"></canvas>
 <div id="toast"></div>
@@ -39,6 +45,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 <div id="menu" class="ov">
  <h1>攀巔</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
  <input id="nick" maxlength="8" placeholder="暱稱">
+ <div id="pick"></div>
  <button id="bSolo">單人遊玩</button>
  <button id="bHost" class="alt">建立房間</button>
  <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
@@ -48,7 +55,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 <div id="room" class="ov hide">
  <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
  <button id="bCopy" class="alt">複製分享連結</button>
- <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul>
+ <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul><div id="rpick"></div>
  <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
  <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
  <button id="bLeave" class="alt">離開</button>
@@ -76,7 +83,53 @@ const BIOMES=[
  {n:'雪山',rock:'#8b98a8',edge:'#f4f8ff',sky:['#9fb4d6','#e9eef8']},
  {n:'火山',rock:'#4a3030',edge:'#8a4a32',sky:['#3a1d24','#d0603a']}];
 const biomeAt=y=>Math.max(0,Math.min(NB-1,Math.floor(-y/BL)));
-const COLORS=['#ff6b4a','#4ab3ff','#7de05a','#e07de0'];
+// Character colors: swap hex values here. Order = colorIndex (server uses indexes 0..3).
+const COLORS=['#e8483b','#2f8fe0','#3fb85a','#f2b630'];
+const COLOR_NAMES=['紅','藍','綠','黃'];
+let myGender='m',myCI=0,serverRoster=false;
+try{if(localStorage.gender==='f')myGender='f';const c=+localStorage.color;if(c>=0&&c<COLORS.length)myCI=c}catch(_){}
+const saveChar=()=>{try{localStorage.gender=myGender;localStorage.color=myCI}catch(_){}};
+const gSym=g=>g==='f'?'♀':'♂';
+// ---------- character art: sprite sheets from characters/manifest.json, procedural fallback ----------
+const SPR={ok:false,m:null,sheets:{},tint:{}};
+(async()=>{try{const r=await fetch('characters/manifest.json',{cache:'no-cache'});if(!r.ok)return;const m=await r.json();
+ const load=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src='characters/'+src});
+ for(const g of['male','female']){const d=m.sheets&&m.sheets[g];if(!d)continue;
+  SPR.sheets[g]=Array.isArray(d)?{perColor:await Promise.all(d.map(load))}:{base:await load(d.base||d),mask:d.mask?await load(d.mask):null}}
+ SPR.m=m;SPR.ok=!!(SPR.sheets.male&&SPR.sheets.female)}catch(e){console.info('no character sprites, using procedural',e&&e.message)}})();
+function tintedMask(g,ci){const k=g+ci;if(SPR.tint[k])return SPR.tint[k];const mk=SPR.sheets[g].mask,c=document.createElement('canvas');c.width=mk.width;c.height=mk.height;
+ const x=c.getContext('2d');x.drawImage(mk,0,0);x.globalCompositeOperation='multiply';x.fillStyle=COLORS[ci];x.fillRect(0,0,c.width,c.height);x.globalCompositeOperation='destination-in';x.drawImage(mk,0,0);return SPR.tint[k]=c}
+// Draws a character with feet at (0,0) in the current transform. anim: idle|walk|jump|climb|fall; frame: running counter (seconds); facing: 1|-1
+function drawCharacter(ctx,gender,colorIndex,anim,frame,facing){
+ const g=gender==='f'?'female':'male',ci=colorIndex|0;
+ if(SPR.ok){const m=SPR.m,a=(m.anims&&(m.anims[anim]||m.anims.idle))||{row:0,frames:1,fps:1},fw=m.frameW,fh=m.frameH,sc=m.scale||1,an=m.anchor||[fw/2,fh];
+  const fi=Math.floor(frame*(a.fps||8))%(a.frames||1),sx=fi*fw,sy=(a.row||0)*fh,sh=SPR.sheets[g];
+  ctx.save();if(facing<0!==(m.facesLeft===true))ctx.scale(-1,1);
+  const dr=img=>ctx.drawImage(img,sx,sy,fw,fh,-an[0]*sc,-an[1]*sc,fw*sc,fh*sc);
+  if(sh.perColor)dr(sh.perColor[ci]||sh.perColor[0]);else{dr(sh.base);if(sh.mask)dr(tintedMask(g,ci))}
+  ctx.restore();return}
+ // procedural fallback (approx 12x18 px body)
+ const col=COLORS[ci]||COLORS[0],f=facing<0?-1:1,t=frame;ctx.save();ctx.scale(f,1);
+ const sw=anim==='walk'?Math.sin(t*14)*3:anim==='climb'?Math.sin(t*10)*2:0;
+ // legs
+ ctx.fillStyle='#3a3046';ctx.fillRect(-4,-6,3,6+(anim==='jump'?-2:0)+(sw>0?0:-1));ctx.fillRect(1,-6,3,6+(sw<0?0:-1));
+ // backpack
+ ctx.fillStyle='#5a3a22';ctx.fillRect(-9,-15,4,8);
+ // body
+ ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(-5,-15,10,10,3):ctx.rect(-5,-15,10,10);ctx.fill();
+ if(gender==='f'){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(-6,-5);ctx.lineTo(6,-5);ctx.lineTo(4,-9);ctx.lineTo(-4,-9);ctx.fill()}
+ // arm
+ const up=anim==='climb'||anim==='jump';ctx.fillStyle=col;ctx.fillRect(3,up?-20+sw:-13+sw*.5,3,up?6:6);ctx.fillStyle='#ffe0bd';ctx.fillRect(3,up?-21+sw:-8+sw*.5,3,2);
+ // head
+ ctx.fillStyle='#ffe0bd';ctx.beginPath();ctx.arc(0,-19,4.5,0,7);ctx.fill();
+ ctx.fillStyle='#000';ctx.fillRect(1.5,-20,1.4,2);
+ // hair
+ if(gender==='f'){ctx.fillStyle='#6b3a1e';ctx.beginPath();ctx.arc(0,-20,4.8,Math.PI*1.05,Math.PI*2.05);ctx.fill();ctx.fillRect(-5,-21,2.5,7);
+  const pt=Math.sin(t*8)*1.5*(anim==='walk'?1:0.3);ctx.beginPath();ctx.ellipse(-6.5,-17+pt,2,4.5,0.3,0,7);ctx.fill();ctx.fillStyle=col;ctx.fillRect(-6,-21,2,2)}
+ else{ctx.fillStyle='#2b2118';ctx.beginPath();ctx.arc(0,-20.5,4.6,Math.PI*1.02,Math.PI*1.98);ctx.fill();ctx.fillRect(-4.6,-21,2,2.5)}
+ ctx.restore()}
+function animOf(p){if(p.down)return'fall';if(p.cling)return'climb';if(!p.ground)return p.vy<0?'jump':'fall';return Math.abs(p.vx)>15?'walk':'idle'}
+const ANIMS=['idle','walk','jump','climb','fall'];
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
 // ---------- world ----------
@@ -232,8 +285,8 @@ function render(dt){
   if(f.k==='berry'){ctx.fillStyle='#d6243a';for(const[a,c]of[[-3,0],[3,0],[0,-4]]){ctx.beginPath();ctx.arc(f.x+a,f.y+c+2,3,0,7);ctx.fill()}}
   else{ctx.fillStyle='#eee';ctx.fillRect(f.x-1.5,f.y,3,6);ctx.fillStyle='#b5482a';ctx.beginPath();ctx.arc(f.x,f.y+1,6,Math.PI,0);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(f.x-3,f.y-3,2,2)}}
  if(lava<y1){ctx.fillStyle='#ff5a1a';ctx.fillRect(-60,lava,W+120,y1-lava+50);ctx.fillStyle='#ffc23a';for(let x=0;x<W;x+=20)ctx.fillRect(x,lava+Math.sin(tt*3+x)*2,10,3)}
- for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.col,r.f,r.c,r.d,r.n)}
- drawP(P.x,P.y,myColor,P.face,P.cling,P.down,net?myName:'');
+ for(const id in remotes){const r=remotes[id];drawP(r.dx,r.dy,r.g,r.ci,r.f,ANIMS[r.a]||(r.c?'climb':'idle'),r.d,r.n)}
+ drawP(P.x,P.y,myGender,myCI,P.face,animOf(P),P.down,net?myName:'');
  for(const p of parts){ctx.globalAlpha=Math.max(0,p.l);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,2.5,2.5)}ctx.globalAlpha=1;
  if(b===2){ctx.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<40;i++){const x=(i*97+tt*20*(1+i%3))%W,y=camY+((i*53+tt*40*(1+i%2))%vh);ctx.fillRect(x,y,2,2)}}
  if(hint){const pu=.5+.5*Math.sin(tt*6);ctx.strokeStyle=`rgba(255,240,80,${.5+pu*.5})`;ctx.lineWidth=2+pu;ctx.strokeRect(hint.r.x-2,hint.r.y-2,hint.r.w+4,Math.min(hint.r.h,hint.wall?hint.r.h:14)+4);
@@ -242,14 +295,10 @@ function render(dt){
    ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex+ux*7,ey+uy*7);ctx.lineTo(ex-uy*5,ey+ux*5);ctx.lineTo(ex+uy*5,ey-ux*5);ctx.fill()}}
  hud();
 }
-function drawP(x,y,col,f,cl,dn,name){
+function drawP(x,y,g,ci,f,an,dn,name){
  ctx.save();ctx.translate(x+6,y+PH);if(dn)ctx.rotate(Math.PI/2*(f||1));
- ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(-6,-PH,12,PH,5):ctx.rect(-6,-PH,12,PH);ctx.fill();
- ctx.fillStyle='#ffe0bd';ctx.fillRect(-4+(f>0?2:0),-PH+3,6,5);ctx.fillStyle='#000';ctx.fillRect(f>0?2:-2,-PH+4,1.5,2);
- ctx.fillStyle='#5a3a22';ctx.fillRect(f>0?-9:5,-PH+6,4,8);
- if(cl){ctx.fillStyle=col;ctx.fillRect(cl>0?5:-9,-PH+1,4,3)}
- ctx.restore();
- if(name){ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(name,x+6.5,y-4.5);ctx.fillStyle='#fff';ctx.fillText(name,x+6,y-5)}
+ drawCharacter(ctx,g,ci,an,performance.now()/1000,f||1);ctx.restore();
+ if(name){ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(name,x+6.5,y-8.5);ctx.fillStyle='#fff';ctx.fillText(name,x+6,y-9)}
 }
 function hud(){
  ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -268,12 +317,12 @@ function hud(){
  if(hint){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
   ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(CW/2-tw/2,124,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,142);
   if(syT<60||syT>CH-215){const ey=syT<60?166:CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
- if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,col:myColor}],pw=150,px=CW-pw-8,py=y+40;
+ if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=150,px=CW-pw-8,py=y+40;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*15);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
-  L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+29+i*15;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
+  L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+29+i*15;ctx.fillStyle=COLORS[p.ci]||'#fff';ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
    ctx.fillStyle='#fff';ctx.font='10px sans-serif';const alt=me?-P.y:r?-r.y:0;
-   ctx.fillText(`${p.n} #${p.h?roomCode:sid(p.id)}${me?'(你)':''} ${Math.max(0,alt/4)|0}m${(me?P.down:r&&r.d)?' 重生中':''}`,px+18,yy)})}
+   ctx.fillText(`${gSym(p.g)} ${p.n} #${p.h?roomCode:sid(p.id)}${me?'(你)':''} ${Math.max(0,alt/4)|0}m${(me?P.down:r&&r.d)?' 重生中':''}`,px+18,yy)})}
 }
 
 // ---------- loop ----------
@@ -292,7 +341,7 @@ function loop(now){
 requestAnimationFrame(loop);
 
 // ---------- networking (WebSocket relay) ----------
-let ws=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
+let ws=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',roomCode='';
 const RELAY_URL=new URLSearchParams(location.search).get('server')||'wss://panjian-peak2d.onrender.com/ws';
 const HTTP_URL=RELAY_URL.replace(/^ws/,'http').replace(/\/ws$/,'/');
 try{fetch(HTTP_URL,{mode:'no-cors',cache:'no-store'}).catch(()=>{})}catch(_){}
@@ -306,9 +355,22 @@ function getNick(){myName=($('nick').value.trim()||'玩家'+(Math.random()*90+10
 const wsend=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
 const peerConn=id=>({open:true,send:d=>wsend({t:'msg',to:id,d}),close:()=>wsend({t:'kick',id})});
 function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn)hostConn.send(d)}
-function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].send({t:'lobby',pl});showLobby(pl)}
-function showLobby(pl){lobbyList=pl;$('pcount').textContent=`玩家 ${pl.length}/4`;$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
- for(const p of pl)if(p.id===myId)myColor=p.col}
+function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].send({t:'lobby',pl});if(!serverRoster)showLobby(pl)}
+function showLobby(pl){lobbyList=pl.map(p=>({...p,ci:p.ci??p.c??COLORS.indexOf(p.col)}));$('pcount').textContent=`玩家 ${pl.length}/4`;
+ $('plist').innerHTML=lobbyList.map(p=>`<li style="border-left:6px solid ${COLORS[p.ci]}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[p.ci]};vertical-align:-1px"></span> ${gSym(p.g)} ${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
+ for(const p of lobbyList)if(p.id===myId){myCI=p.ci;if(p.g)myGender=p.g;saveChar()}
+ if(isHost&&serverRoster){for(const p of lobbyList)if(lobby[p.id])Object.assign(lobby[p.id],{g:p.g,ci:p.ci,col:COLORS[p.ci]})}
+ renderPickers()}
+function renderPickers(){
+ const taken={};if(mode==='room')for(const p of lobbyList)if(p.id!==myId)taken[p.ci]=p.n;
+ const html=`<div class="cp"><span>角色</span>${['m','f'].map(g=>`<button class="gb${myGender===g?' sel':''}" data-g="${g}">${g==='m'?'♂ 男':'♀ 女'}</button>`).join('')}</div>
+ <div class="cp">${COLORS.map((c,i)=>`<button class="sw${myCI===i?' sel':''}${taken[i]!=null?' tk':''}" data-c="${i}" style="background:${c}" ${taken[i]!=null?'disabled':''} title="${COLOR_NAMES[i]}">${taken[i]!=null?esc(taken[i]):myCI===i?'✓':''}</button>`).join('')}</div>`;
+ for(const id of['pick','rpick']){const el=$(id);if(el)el.innerHTML=html}}
+function pickGender(g){myGender=g;saveChar();if(mode==='room'&&net){if(serverRoster)wsend({t:'pickGender',g});else if(isHost){lobby[myId].g=g;bcLobby()}else hostConn&&hostConn.send({t:'pick',g})}renderPickers()}
+function pickColor(i){if(mode==='room'&&net){if(lobbyList.some(p=>p.id!==myId&&p.ci===i))return toast('顏色已被選走');
+  if(serverRoster)wsend({t:'pickColor',c:i});else if(isHost){if(!Object.entries(lobby).some(([id,v])=>id!==myId&&v.ci===i)){Object.assign(lobby[myId],{ci:i,col:COLORS[i]});bcLobby()}}else hostConn&&hostConn.send({t:'pick',c:i});return}
+ myCI=i;saveChar();renderPickers()}
+document.addEventListener('click',e=>{const b=e.target.closest('.gb,.sw');if(!b||b.disabled)return;if(b.dataset.g)pickGender(b.dataset.g);else pickColor(+b.dataset.c)});
 function failNet(m){clearTimeout(joinTimer);connGen++;st(m);$('bRetry').classList.remove('hide');const w=ws;ws=null;try{w&&w.close()}catch(_){}}
 function connect(first,onMsg,dl,gen){
  try{ws&&ws.close()}catch(_){}
@@ -320,6 +382,8 @@ function connect(first,onMsg,dl,gen){
  s.onopen=()=>{if(ws===s)wsend(first)};
  s.onmessage=safe(e=>{if(ws!==s)return;const m=JSON.parse(e.data);
   if(m.t==='ping'){wsend({t:'pong'});return}
+  if(m.t==='roster'){serverRoster=true;showLobby(m.pl.map(p=>({id:p.id,n:p.n,g:p.g,ci:p.c,h:p.h})));return}
+  if(m.t==='colorTaken'){toast(`顏色已被 ${m.by} 選走`);return}
   if(m.t==='error'){net=false;failNet(ERR[m.e]||('錯誤：'+m.e));if(mode==='room')leave(true);return}
   onMsg(m)});
  s.onclose=()=>{if(ws!==s)return;ws=null;const was=net;net=false;
@@ -331,8 +395,8 @@ function connect(first,onMsg,dl,gen){
 }
 function host(){
  getNick();lastAction=host;isHost=true;
- connect({t:'create',name:myName},m=>{
-  if(m.t==='created'){clearTimeout(joinTimer);myId=m.id;roomCode=m.code;net=true;conns={};remotes={};lobby={[myId]:{n:myName,col:COLORS[0],h:1}};myColor=COLORS[0];openRoom();bcLobby()}
+ serverRoster=false;connect({t:'create',name:myName,g:myGender,c:myCI},m=>{
+  if(m.t==='created'){clearTimeout(joinTimer);myId=m.id;roomCode=m.code;net=true;conns={};remotes={};lobby={[myId]:{n:myName,g:myGender,ci:myCI,col:COLORS[myCI],h:1}};openRoom();bcLobby()}
   else if(m.t==='peer-join'){conns[m.id]=peerConn(m.id)}
   else if(m.t==='peer-leave'){const n=lobby[m.id]&&lobby[m.id].n;delete conns[m.id];delete lobby[m.id];delete remotes[m.id];bcLobby();if(n)toast(`${n} 離線了`)}
   else if(m.t==='msg')hostHandle(m.from,m.d,false,conns[m.from]||peerConn(m.from));
@@ -342,28 +406,32 @@ function hostHandle(from,d,self,c){
  if(self){if(d.t==='win')win(d.n,d.tm);return}
  if(d.t==='hello'){
   if(Object.keys(lobby).length>=4||mode!=='room'){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
-  conns[from]=c;const used=Object.values(lobby).map(v=>v.col);lobby[from]={n:String(d.n).slice(0,8),col:COLORS.find(x=>!used.includes(x))};bcLobby();
- }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,col:lobby[from].col})}
+  conns[from]=c;const sr=serverRoster&&lobbyList.find(p=>p.id===from);let ci,g=d.g==='f'?'f':'m';
+  if(sr){ci=sr.ci;g=sr.g}else{const used=Object.values(lobby).map(v=>v.ci);ci=(d.c>=0&&d.c<COLORS.length&&!used.includes(d.c))?d.c:COLORS.findIndex((_,i)=>!used.includes(i))}
+  lobby[from]={n:String(d.n).slice(0,8),g,ci,col:COLORS[ci]};bcLobby();
+ }else if(d.t==='pick'){const L=lobby[from];if(!L)return;if(d.g)L.g=d.g==='f'?'f':'m';
+  if(d.c!=null&&!Object.entries(lobby).some(([id,v])=>id!==from&&v.ci===d.c)&&d.c>=0&&d.c<COLORS.length){L.ci=d.c;L.col=COLORS[d.c]}bcLobby();
+ }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,g:lobby[from].g,ci:lobby[from].ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
 }
 function netTick(){
- const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0};
- if(isHost){const ps={[myId]:{...me,n:myName,col:myColor}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,n:r.n,col:r.col}}
+ const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0,a:ANIMS.indexOf(animOf(P))};
+ if(isHost){const ps={[myId]:{...me,n:myName,g:myGender,ci:myCI}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,a:r.a,n:r.n,g:r.g,ci:r.ci}}
   for(const id in conns)conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
  else hostConn&&hostConn.send({t:'st',...me});
 }
 function join(code,auto){
  getNick();code=String(code).replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
  if(!auto)reconnTried=false;lastAction=()=>join(code);isHost=false;roomCode=code;
- connect({t:'join',code,name:myName},m=>{
-  if(m.t==='joined'){clearTimeout(joinTimer);myId=m.id;net=true;remotes={};hostConn={open:true,send:d=>wsend({t:'msg',d})};hostConn.send({t:'hello',n:myName});openRoom()}
+ serverRoster=false;connect({t:'join',code,name:myName,g:myGender,c:myCI},m=>{
+  if(m.t==='joined'){clearTimeout(joinTimer);myId=m.id;net=true;remotes={};hostConn={open:true,send:d=>wsend({t:'msg',d})};hostConn.send({t:'hello',n:myName,g:myGender,c:myCI});openRoom()}
   else if(m.t==='host-left'){net=false;remotes={};toast('房主離開了，房間已關閉');if(mode==='room'){leave(true);st('房主離開了，房間已關閉')}else st('房主離開了');try{ws&&ws.close()}catch(_){}ws=null}
   else if(m.t==='msg')clientHandle(m.d);
  });
 }
 function clientHandle(d){
- if(d.t==='lobby')showLobby(d.pl);
+ if(d.t==='lobby'){if(!serverRoster)showLobby(d.pl)}
  else if(d.t==='full'){net=false;leave(true);st('房間已滿或已開始')}
  else if(d.t==='start')startGame(d.seed);
  else if(d.t==='ps'){if(mode!=='play')return;lava=d.lava;if(d.lo)lavaOn=true;
@@ -373,15 +441,16 @@ function clientHandle(d){
  else if(d.t==='win')win(d.n,d.tm);
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
- $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('')}
+ $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
 function leave(keepStatus){connGen++;clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
- ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('')}
+ ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('');renderPickers()}
 function hostStart(){const s=Math.random()*1e9|0;wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
+renderPickers();
 const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.replace(/\D/g,'').slice(0,4);st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
-$('bSolo').onclick=()=>{getNick();net=false;myColor=COLORS[0];startGame(Math.random()*1e9|0)};
+$('bSolo').onclick=()=>{getNick();net=false;startGame(Math.random()*1e9|0)};
 $('bHost').onclick=host;
 $('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
 $('hintb').onclick=()=>{if(mode==='play'&&P&&!P.down){makeHint();progT=elapsed}};
