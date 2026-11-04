@@ -145,7 +145,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  const R=rng(sd!=null?sd:LV*7919+104729);rects=[];foods=[];camps=[];eaten=new Set();
  rects.push({x:-60,y:0,w:W+120,h:400});
  rects.push({x:-60,y:TOP-800,w:60,h:-TOP+1200,side:1},{x:W,y:TOP-800,w:60,h:-TOP+1200,side:1});
- for(let b=1;b<NB;b++)camps.push({x:180,y:-b*BL,b});
+ for(let b=1;b<NB;b++)camps.push({x:180,y:-b*BL,b,k:b});
  let fid=0;const peakR={x:110,y:TOP,w:140,h:14,peak:1};
  // ---- critical path: every ledge is reachable from the previous one with a safety margin
  // rise <= 48px (~70% of the 68px max jump), side gap <= 24px, and no path ledge hangs within 90px above another's take-off area
@@ -164,7 +164,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   if(ny<=m.y+20){turn=false;// milestone (campfire / summit) sits wherever the path arrives near its nominal height
    if(m.peak){const r=place(ny,140,70,14,{peak:1});Object.assign(peakR,r);TOP=peakR.y;path.push(peakR);mi++;break}
    const r=place(ny,120,64,16,{camp:1,path:1});rects.push(r);m.c.x=r.x+r.w/2;m.c.y=r.y;path.push(r);mi++;continue}
-  const r=place(ny,40+R()*(wmax-40),40,14,{path:1});rects.push(r);path.push(r);
+  const wmn=60-20*DIFF,r=place(ny,wmn+R()*Math.max(0,wmax-wmn),40,14,{path:1});rects.push(r);path.push(r);
   // approaching a wall: this rise and the turn's rise are both 45px so the turn ledge clears the old take-off spot
   const room=side>0?W-r.x-r.w:r.x,need=r.y-rmin-6<=m.y+20?(m.peak?84:78):52;turn=false;if(room<need){r.y=prev.y-45;turn=true}
   if(R()<.22)foods.push({id:fid++,x:r.x+r.w/2,y:r.y-7,k:R()<.6?'berry':'mush'});
@@ -177,13 +177,22 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(r.ex){if(Math.abs(a.y-r.y)<100&&r.x<a.x+a.w+34&&r.x+r.w>a.x-34)bad=true}
    else{const lo=Math.min(a.x,b.x)-24,hi=Math.max(a.x+a.w,b.x+b.w)+24;if(r.x<hi&&r.x+r.w>lo&&r.y<a.y&&r.y+r.h>b.y-PH-70)bad=true}}
   if(bad){rects.splice(i,1);}}
+ // rest campfires along the route (every ~30m early, sparser later) + a berry beside each
+ {const CPD=120+DIFF*240,big=camps.slice();let ly=0,ci=0;
+  for(const r of path){for(const c of big)if(c.y<ly&&c.y>=r.y)ly=c.y;
+   if(!r.path||r.camp||r.peak||!rects.includes(r)||r.w<40||r.y-TOP<CPD*.5||big.some(c=>c.y<r.y&&r.y-c.y<CPD*.5))continue;
+   if(ly-r.y>=CPD){camps.push({x:r.x+Math.min(r.w/2,14),y:r.y,b:-1,k:100+ci++,mini:1});foods.push({id:fid++,x:r.x+r.w-8,y:r.y-7,k:'berry'});ly=r.y}}}
  foods=foods.filter(f=>rects.some(r=>!r.side&&f.x>=r.x&&f.x<=r.x+r.w&&Math.abs(f.y+7-r.y)<1));
  rects.push(peakR);
  ensurePath();
+ // early levels: catch ledges beside the first path ledges so a missed jump doesn't drop all the way to the beach; kept only if the validated route stays intact
+ if(DIFF<.35&&NAV.path){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
+  if(rects.some(q=>q!==rects[0]&&q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
+  rects.push({x,y,w,h:10,ex:1,catch:1});navInit();const res=navSearch(nodeAt(rects[0],W/2-6));if(res.ok&&res.path.length<=L0){NAV.path=res.path;added++}else rects.pop()}}navInit();NAV.path=navSearch(nodeAt(rects[0],W/2-6)).path}
  if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
-const JV=390,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=140*.85;// 90% jump speed = 81% jump height, 85% air speed
+const JV=390,AIRV=100,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=AIRV*.85;// 90% jump speed = 81% jump height, 85% air speed
 let NAV=null;
 function buildNodes(){const nodes=[];
  for(const r of rects){if(r.side)continue;const x0=Math.max(r.x,0),x1=Math.min(r.x+r.w,W)-PW;let a=null;
@@ -193,7 +202,7 @@ function navInit(){const nodes=buildNodes(),byR=new Map();for(const n of nodes){
 function nodeAt(r,x){const L=NAV.byR.get(r);if(!L)return null;let best=null,bd=1e9;for(const n of L){const d=x<n.a?n.a-x:x>n.b?x-n.b:0;if(d<bd){bd=d;best=n}}return bd<=10?best:null}
 function simJump(sx,sy,dir,rel,L,run,jv,as){jv=jv||NAV_JV;as=as||NAV_AS;let x=sx,y=sy-.01,vx=run?dir*as*.9:0,vy=-jv,t=0;
  const H=(x,y)=>{for(const r of L)if(x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y)return r;return null};
- for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*5);vy=Math.min(900,vy+1000*NAV_DT);
+ for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*(ax?5:8));vy=Math.min(900,vy+1000*NAV_DT);
   x+=vx*NAV_DT;let r=H(x,y);if(r){x=vx>0?r.x-PW:r.x+r.w;vx=0}
   y+=vy*NAV_DT;r=H(x,y);if(r){if(vy>0)return vy>600?null:{r,x};y=r.y+r.h;vy=0}
   if(y>sy+260)return null}return null}
@@ -201,7 +210,7 @@ const RELS=[1e9,.3,.15];
 function edgesOf(n){if(NAV.edges.has(n.id))return NAV.edges.get(n.id);const out=[],seen=new Set();
  const L=rects.filter(r=>r.y<n.y+PH+280&&r.y+r.h>n.y-120);
  const xs=new Set([n.a,n.b]);for(let x=n.a+16;x<n.b-4;x+=16)xs.add(x);
- for(const sx0 of xs){const sx=Math.round(sx0/2)*2;for(const dir of[-1,0,1])for(const run of dir?[0,1]:[0]){if(run&&(dir>0?sx-n.a:n.b-sx)<30)continue;for(const rel of dir?RELS:[1e9]){const l=simJump(sx,n.y,dir,rel,L,run);if(!l)continue;const m=nodeAt(l.r,l.x);if(!m||m===n||seen.has(m.id))continue;seen.add(m.id);out.push({to:m,sx,dir,rel,run})}}}
+ for(const sx0 of xs){const sx=Math.round(sx0/2)*2;for(const dir of[-1,0,1])for(const run of dir?[0,1]:[0]){if(run&&(dir>0?sx-n.a:n.b-sx)<30)continue;for(const rel of dir?RELS:[1e9]){const l=simJump(sx,n.y,dir,rel,L,run);if(!l)continue;const m=nodeAt(l.r,l.x);if(!m||m===n||seen.has(m.id))continue;seen.add(m.id);out.push({to:m,sx,dir,rel,run,lx:l.x})}}}
  NAV.edges.set(n.id,out);return out}
 function navSearch(start){// BFS from start node; returns {goal path edges} or {best reached}
  const prev=new Map([[start.id,null]]),q=[start];let best=start;
@@ -243,8 +252,8 @@ const AVOL={bgm:.22,amb:.18,step:.35,pick:.7,camp:.75,win:.8,click:.5};
 function auUnlock(){try{if(!AU.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;AU.ctx=new C();AU.master=AU.ctx.createGain();AU.master.gain.value=AU.muted?0:1;AU.master.connect(AU.ctx.destination);
   const b=AU.ctx.createBuffer(1,1,22050),s=AU.ctx.createBufferSource();s.buffer=b;s.connect(AU.master);s.start(0);
   for(const k in AFILES)fetch('audio/'+AFILES[k]+'.mp3').then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(a=>new Promise((ok,no)=>AU.ctx.decodeAudioData(a,ok,no))).then(d=>{AU.buf[k]=d;if((k==='bgm'||k==='amb')&&mode==='play')auLoop(k)}).catch(()=>{})}
- if(AU.ctx.state==='suspended'&&!document.hidden)AU.ctx.resume()}catch(_){}}
-['pointerdown','touchend','keydown','click'].forEach(t=>addEventListener(t,auUnlock,{capture:true,passive:true}));
+ if(AU.ctx.state!=='running'&&!document.hidden)AU.ctx.resume().then(()=>{if(mode==='play')auMusic(true)},()=>{});else if(mode==='play')auMusic(true)}catch(_){}}
+['pointerdown','touchstart','touchend','keydown','mousedown','click'].forEach(t=>addEventListener(t,auUnlock,{capture:true,passive:true}));
 function sfx(k,v=1){try{if(!AU.ctx||!AU.buf[k]||AU.muted)return;const s=AU.ctx.createBufferSource(),g=AU.ctx.createGain();s.buffer=AU.buf[k];g.gain.value=AVOL[k]*v;s.connect(g);g.connect(AU.master);s.start();return s}catch(_){}}
 function auLoop(k){try{if(!AU.ctx||!AU.buf[k]||AU.loops[k])return;const s=AU.ctx.createBufferSource(),g=AU.ctx.createGain();s.buffer=AU.buf[k];s.loop=true;g.gain.value=AVOL[k];s.connect(g);g.connect(AU.master);s.start();AU.loops[k]=s}catch(_){}}
 function auMusic(on){if(on){auLoop('bgm');auLoop('amb')}else for(const k in AU.loops){try{AU.loops[k].stop()}catch(_){}delete AU.loops[k]}}
@@ -270,10 +279,11 @@ const pressed=k=>K[k]&&!prev[k];
 
 // ---------- game flow ----------
 function prog(){try{return JSON.parse(localStorage.pj_prog||'{}')}catch(_){return{}}}
-function cleared(){return prog().c||0}
+const DEBUG=/[?&]debug=1\b/.test(location.search);let DBG_INF=false;
+function cleared(){return DEBUG?NLV:prog().c||0}
 function nextLv(){return Math.min(NLV,cleared()+1)}
 function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!g.b[lv]||t<g.b[lv])g.b[lv]=+t.toFixed(1);try{localStorage.pj_prog=JSON.stringify(g)}catch(_){}}
-function renderLv(){const n=nextLv();$('bSolo').textContent=`繼續 · 第${n}關`;const g=prog(),b=g.b||{};
+function renderLv(){const n=nextLv();let cm='';try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===n)cm=`（營火 ${Math.max(0,-(c.y+PH)/4)|0} m）`}catch(_){}$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
  $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;
   e.style.cssText='min-width:0;width:52px;height:46px;padding:0;font-size:15px;line-height:1.1;'+(ok?'':'opacity:.35');
   e.innerHTML=i+(b[i]?`<br><small style="font-size:9px">${fmt(b[i])}</small>`:'');e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};$('lvgrid').appendChild(e)}
@@ -286,10 +296,15 @@ function startGame(s){
   for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
  hint=null;bestY=P.y;progT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
+ const cp=!net&&!window.BOT&&loadCP(s);if(cp){Object.assign(P,{x:cp.x,y:cp.y});P.camp=cp.camp;checkpoint={x:cp.x,y:cp.y};t0-=cp.el*1000;elapsed=cp.el;camY=P.y-200;bestY=P.y;toast(`第${LV}關 · 從營火繼續（${Math.max(0,-(cp.y+PH)/4)|0} m）`)}
+ resize();try{render(0)}catch(e){console.error('first frame',e)}
 }
+function loadCP(lv){try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===lv&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&!hit(c.x,c.y,PW,PH))return c}catch(_){}return null}
+function saveCP(){if(net||window.BOT)return;try{localStorage.pj_cp=JSON.stringify({lv:LV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1)})}catch(_){}}
+function clearCP(lv){try{const c=JSON.parse(localStorage.pj_cp||'null');if(c&&c.lv===lv)localStorage.removeItem('pj_cp')}catch(_){}}
 function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
-function win(name,time){if(mode!=='play')return;mode='end';auMusic(false);sfx('win');$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
+function win(name,time){if(mode!=='play')return;mode='end';clearCP(LV);auMusic(false);sfx('win');$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
  $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
  $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
@@ -300,10 +315,10 @@ function update(dt){try{auSteps(dt)}catch(_){}
  elapsed=window.BOT?BOT.t:(performance.now()-t0)/1000;
  const b=biomeAt(P.y);
  // hunger & cold
- P.hun=Math.min(45,P.hun+dt*(.15+.2*DIFF));
+ P.hun=Math.min(45,P.hun+dt*(.012+.06*DIFF+.2*DIFF*DIFF));
  const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
- if(nearCamp&&P.camp!==nearCamp.b){if(P.camp!==-1||nearCamp.b>0)sfx('camp');P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
+ if(nearCamp&&P.camp!==nearCamp.k&&nearCamp.y-PH-1<checkpoint.y-1){sfx('camp');P.camp=nearCamp.k;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};saveCP();toast(nearCamp.mini?`營火！已存檔（${-(nearCamp.y)/4|0} m）`:`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
  if(P.y<bestY-10){bestY=P.y;progT=elapsed}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
  if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
@@ -317,16 +332,17 @@ function update(dt){try{auSteps(dt)}catch(_){}
   const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
   P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up&&!dn?18*DIFF:0);
   P.stam-=((2.5+4.5*DIFF)+up*(5+8*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
-  if(JB>0&&P.stam>4){JB=0;P.vy=-350;P.vx=-P.cling*200;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
-  P.vx+=(ax*140-P.vx)*Math.min(1,dt*(P.ground?14:5));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1&&P.stam>3){JB=0;P.coy=0;P.vy=-JV;P.stam-=8;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:8));
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.jh=1;P.stam=Math.max(0,P.stam-8);P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
- P.stam=Math.max(0,Math.min(P.stam,MS));
+ P.stam=Math.max(0,Math.min(P.stam,MS));if(DBG_INF){P.stam=MS;P.hun=0;P.cold=0}
  P.x+=P.vx*dt;const rx=hit(P.x,P.y,PW,PH);if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
+ if(P.jh&&!K.jump){if(P.vy<-320)P.vy=-320;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
  const vy=P.vy;moveY(dt);
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
  // food
@@ -352,9 +368,14 @@ let hint=null,bestY=0,progT=0;
 function makeHint(){
  const n=standNode(),path=routeFrom(n);
  if(!path||!path.length){toast('先站穩在平台上，再按「？」');return}
- const e=path[0],t=e.to,tx=Math.max(t.a,Math.min(t.b,P.x))+6,need=e.sx-P.x;
- const text=Math.abs(need)>8?(need<0?'往左走一點，再':'往右走一點，再')+(e.dir<0?'往左跳':e.dir>0?'往右跳':'往上跳'):(e.dir<0?'往左跳到這個平台':e.dir>0?'往右跳到這個平台':'往上跳到這個平台');
- hint={r:t.r,tx,ty:t.r.y,text,sy:P.y,reach:1}}
+ const e=path[0],t=e.to,tx=(e.lx!=null?e.lx:Math.max(t.a,Math.min(t.b,P.x)))+6;
+ hint={r:t.r,tx,ty:t.r.y,e,gy:n.y+PH,sy:P.y,reach:1};hintPhase()}
+// hint text/arrow are derived from the same validated edge every frame, so they always agree
+function hintPhase(){const h=hint;if(!h||!h.e)return;const e=h.e,D=d=>d<0?'左':'右',need=e.sx-P.x,at=Math.abs(need)<=8;h.mx=e.sx+6;
+ if(e.run){const dxr=h.tx-(P.x+6);if((e.sx-P.x)*e.dir<24){h.walk=true;h.mx=e.sx-e.dir*32+6;h.text=`先往${D(-e.dir)}退到黃色標記處`}else{h.walk=false;h.text=`往${D(e.dir)}助跑，在黃色標記處起跳`}}
+ else if(!at){h.walk=true;h.text=`先往${D(need)}走到黃色標記處`}
+ else{h.walk=false;const dx=h.tx-(P.x+6),dy=h.ty-(P.y+PH),v=(Math.abs(dx)<=14?'往上':(dx<0?'往左':'往右')+(dy<-4?'上':''))+'跳';
+  h.text=v+(e.dir===0?'（不用按方向）':e.rel>1e3?`（按住「${D(e.dir)}」）`:`（起跳後輕點「${D(e.dir)}」）`)}}
 // ---------- render ----------
 function render(dt){
  const s=CW/W*DPR,vh=CH/(CW/W);
@@ -387,7 +408,8 @@ function render(dt){
  for(const p of parts){ctx.globalAlpha=Math.max(0,p.l);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,2.5,2.5)}ctx.globalAlpha=1;
  if(b===2){ctx.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<40;i++){const x=(i*97+tt*20*(1+i%3))%W,y=camY+((i*53+tt*40*(1+i%2))%vh);ctx.fillRect(x,y,2,2)}}
  if(hint){const pu=.5+.5*Math.sin(tt*6);ctx.strokeStyle=`rgba(255,240,80,${.5+pu*.5})`;ctx.lineWidth=2+pu;ctx.strokeRect(hint.r.x-2,hint.r.y-2,hint.r.w+4,Math.min(hint.r.h,hint.wall?hint.r.h:14)+4);
-  const x0=P.x+6,y0=P.y+9,dx=hint.tx-x0,dy=hint.ty-y0,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,len=Math.min(L-6,40+pu*10);
+  hintPhase();if(hint.mx!=null&&(hint.walk||hint.e&&hint.e.run)){ctx.fillStyle=`rgba(255,233,74,${.6+pu*.4})`;const yy=hint.gy;ctx.fillRect(hint.mx-1,yy-26,2,26);ctx.beginPath();ctx.moveTo(hint.mx-6,yy-26);ctx.lineTo(hint.mx+6,yy-26);ctx.lineTo(hint.mx,yy-18);ctx.fill()}
+  const wk=hint.walk,x0=P.x+6,y0=P.y+9,dx=wk?hint.mx-x0:hint.tx-x0,dy=wk?0:hint.ty-y0,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,len=Math.min(L-6,40+pu*10);
   if(len>8){ctx.strokeStyle='#ffe94a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0+ux*12,y0+uy*12);const ex=x0+ux*(12+len),ey=y0+uy*(12+len);ctx.lineTo(ex,ey);ctx.stroke();
    ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex+ux*7,ey+uy*7);ctx.lineTo(ex-uy*5,ey+ux*5);ctx.lineTo(ex+uy*5,ey-ux*5);ctx.fill()}}
  hud();
@@ -424,17 +446,20 @@ function hud(){
 
 // ---------- loop ----------
 let last=performance.now(),netT=0;
-function loop(now){
- const dt=Math.min(.033,(now-last)/1000);last=now;
- if(mode==='play'&&P&&!window.BOT)update(dt);
+function loop(now,fb){if(!fb){requestAnimationFrame(loop);lastRAF=performance.now()}
+ if(innerWidth&&innerHeight&&(CW!==innerWidth||CH!==innerHeight||!cv.width))resize();
+ const dt=Math.max(0,Math.min(.033,(now-last)/1000));last=now;
+ if(mode==='play'&&P){if(![P.x,P.y,P.vx,P.vy].every(Number.isFinite)){console.warn('bad player state, reset');Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0})}if(!window.BOT)try{update(dt)}catch(e){console.error('update',e)}}
  for(const k in K)prev[k]=K[k];
  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=300*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);
  for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
  shake-=dt;if(toastT>0&&(toastT-=dt)<=0)$('toast').textContent='';
  if(net&&mode==='play'&&(netT+=dt)>.055){netT=0;netTick()}
- if(P)render(dt);else{ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height)}
- requestAnimationFrame(loop);
+ try{if(P)render(dt);else{ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height)}RERR=0}catch(e){RERR+=dt;console.error('render',e);ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#24476b';ctx.fillRect(0,0,cv.width,cv.height);if(RERR>1&&mode==='play'&&RFIX++<3){RERR=0;startGame(LV)}}
 }
+let RERR=0,RFIX=0,lastRAF=0;
+// fallback driver: if rAF is throttled/paused (background tab, hidden iframe) keep the game drawing via a timer
+setInterval(()=>{if(mode==='play'&&performance.now()-lastRAF>250)loop(performance.now(),1)},50);
 requestAnimationFrame(loop);
 
 // ---------- networking (WebSocket relay) ----------
@@ -569,7 +594,7 @@ function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classLi
  $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
 function leave(keepStatus){connGen++;auMusic(false);clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('');renderPickers()}
-function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
+function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s);setTimeout(()=>{if(net&&isHost&&(mode!=='play'||!P||!rects.length||LV!==s)&&mode!=='end'){console.warn('host start watchdog');startGame(s)}},1500)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
@@ -593,4 +618,17 @@ $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
 $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)};
 $('bMenu').onclick=()=>leave();
+// ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
+function dbgTeleport(m){if(!P||mode!=='play')return;const ty=-m*4-PH;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const d=Math.abs(n.y-ty);if(!best||d<best.d)best={n,d}}
+ if(!best)return;const n=best.n;Object.assign(P,{x:(n.a+n.b)/2,y:n.y,vx:0,vy:0,down:false});checkpoint={x:P.x,y:P.y};camY=P.y-200;hint=null;bestY=P.y;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`)}
+function dbgZone(b){dbgTeleport(Math.max(0,b*BL/4+2))}
+if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:4px;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
+ d.innerHTML='DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label>';
+ document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0');
+ const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
+ $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(Math.min(NB-1,biomeAt(P?P.y:0)+1));
+ $('dInf').onchange=e=>{DBG_INF=e.target.checked};
+ addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
+  if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
+  else if(k>='1'&&k<='4')dbgZone(+k-1);else if(k==='i'){DBG_INF=!DBG_INF;$('dInf').checked=DBG_INF;toast('∞體力 '+(DBG_INF?'開':'關'))}})}
 </script></body></html>
