@@ -291,37 +291,50 @@ function loop(now){
 }
 requestAnimationFrame(loop);
 
-// ---------- networking (PeerJS, optional) ----------
-let peer=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
-const PFX='panjian-peak2d-v1-';
-const RELAY=/[?&]relay=1/.test(location.search);
-const POPT={debug:1,config:{iceTransportPolicy:RELAY?'relay':'all',iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
- {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443'],username:'openrelayproject',credential:'openrelayproject'}]}};
-let joinTimer=0,lastCode='';
+// ---------- networking (WebSocket relay) ----------
+let ws=null,net=false,isHost=false,myId='me',hostConn=null,conns={},lobby={},remotes={},myName='玩家',myColor=COLORS[0],roomCode='';
+const RELAY_URL=new URLSearchParams(location.search).get('server')||'wss://panjian-peak2d.deno.dev/ws';
+let joinTimer=0,lastAction=null,reconnTried=false,lobbyList=[];
+const sid=id=>String(id).slice(-4).toUpperCase();
 const safe=f=>(...a)=>{try{f(...a)}catch(e){console.warn('net handler',e)}};
-const brokerErr=t=>({'peer-unavailable':'找不到這個房間，請確認邀請碼','network':'無法連上配對伺服器，請檢查網路','server-error':'配對伺服器錯誤，請稍後再試','socket-error':'配對伺服器連線中斷','socket-closed':'配對伺服器連線中斷','browser-incompatible':'此瀏覽器不支援連線','webrtc':'連線建立失敗（網路可能封鎖）'}[t]||'連線錯誤：'+t);let lobbyList=[];const sid=id=>String(id).replace(PFX,'').replace(/[^a-z0-9]/gi,'').slice(-4).toUpperCase();
-function loadPeer(){return new Promise((ok,no)=>{if(window.Peer)return ok();const s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';s.onload=ok;s.onerror=()=>no(new Error('無法載入連線函式庫'));document.head.appendChild(s)})}
+const ERR={notfound:'找不到這個房間，請確認邀請碼',full:'房間已滿（最多 4 人）',started:'遊戲已開始，無法加入',nocode:'目前沒有空房間代碼，請稍後再試',bad:'邀請碼格式錯誤'};
 const st=t=>{$('status').textContent=t;$('rstatus').textContent=t};
 function getNick(){myName=($('nick').value.trim()||'玩家'+(Math.random()*90+10|0)).slice(0,8);try{localStorage.nick=myName}catch(_){}}
-function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].open&&conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn&&hostConn.open)hostConn.send(d)}
-function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].open&&conns[id].send({t:'lobby',pl});showLobby(pl)}
+const wsend=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
+const peerConn=id=>({open:true,send:d=>wsend({t:'msg',to:id,d}),close:()=>wsend({t:'kick',id})});
+function send(d){if(!net)return;if(isHost){for(const id in conns)conns[id].send(d);hostHandle(myId,d,true)}else if(hostConn)hostConn.send(d)}
+function bcLobby(){const pl=Object.entries(lobby).map(([id,v])=>({id,...v}));for(const id in conns)conns[id].send({t:'lobby',pl});showLobby(pl)}
 function showLobby(pl){lobbyList=pl;$('pcount').textContent=`玩家 ${pl.length}/4`;$('plist').innerHTML=pl.map(p=>`<li style="border-left:6px solid ${p.col}">${esc(p.n)} <small style="opacity:.7">ID #${p.h?roomCode:sid(p.id)}</small>${p.h?' 👑房主':''}${p.id===myId?'（你）':''}</li>`).join('');
  for(const p of pl)if(p.id===myId)myColor=p.col}
-async function host(){
- getNick();st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
- roomCode=String(Math.random()*10000|0).padStart(4,'0');
- try{peer&&peer.destroy()}catch(_){}peer=new Peer(PFX+roomCode,POPT);
- peer.on('open',id=>{myId=id;isHost=true;net=true;lobby={[id]:{n:myName,col:COLORS[0],h:1}};myColor=COLORS[0];openRoom();bcLobby()});
- peer.on('connection',c=>{
-  c.on('data',safe(d=>hostHandle(c.peer,d,false,c)));
-  c.on('close',()=>{const n=lobby[c.peer]&&lobby[c.peer].n;delete conns[c.peer];delete lobby[c.peer];delete remotes[c.peer];bcLobby();if(n)toast(`${n} 離線了`)});
- });
- peer.on('error',e=>{if(e.type==='unavailable-id')host();else if(e.type!=='peer-unavailable')st(brokerErr(e.type))});
- peer.on('disconnected',()=>{setTimeout(()=>{try{if(peer&&!peer.destroyed&&peer.disconnected)peer.reconnect()}catch(_){}},1000)});
+function failNet(m){clearTimeout(joinTimer);st(m);$('bRetry').classList.remove('hide');const w=ws;ws=null;try{w&&w.close()}catch(_){}}
+function connect(first,onMsg){
+ try{ws&&ws.close()}catch(_){}
+ $('bRetry').classList.add('hide');st('連線伺服器中…');
+ let s;try{s=new WebSocket(RELAY_URL)}catch(e){failNet('無法連上伺服器');return}
+ ws=s;clearTimeout(joinTimer);joinTimer=setTimeout(()=>{if(ws===s&&!net)failNet('連線逾時，無法連上伺服器')},10000);
+ s.onopen=()=>{if(ws===s)wsend(first)};
+ s.onmessage=safe(e=>{if(ws!==s)return;const m=JSON.parse(e.data);
+  if(m.t==='ping'){wsend({t:'pong'});return}
+  if(m.t==='error'){net=false;failNet(ERR[m.e]||('錯誤：'+m.e));if(mode==='room')leave(true);return}
+  onMsg(m)});
+ s.onclose=()=>{if(ws!==s)return;ws=null;const was=net;net=false;
+  if(!was){failNet('無法連上伺服器');return}
+  remotes={};
+  if(!isHost&&mode==='room'&&!reconnTried){reconnTried=true;st('連線中斷，重新連線中…');join(roomCode,true);return}
+  toast(isHost?'與伺服器斷線，改為單人模式':'與房主斷線，改為單人模式');
+  if(mode==='room'){leave(true);failNet('與伺服器斷線')}}
 }
-function hostHandle(from,d,self,cc){
+function host(){
+ getNick();lastAction=host;isHost=true;
+ connect({t:'create',name:myName},m=>{
+  if(m.t==='created'){clearTimeout(joinTimer);myId=m.id;roomCode=m.code;net=true;conns={};remotes={};lobby={[myId]:{n:myName,col:COLORS[0],h:1}};myColor=COLORS[0];openRoom();bcLobby()}
+  else if(m.t==='peer-join'){conns[m.id]=peerConn(m.id)}
+  else if(m.t==='peer-leave'){const n=lobby[m.id]&&lobby[m.id].n;delete conns[m.id];delete lobby[m.id];delete remotes[m.id];bcLobby();if(n)toast(`${n} 離線了`)}
+  else if(m.t==='msg')hostHandle(m.from,m.d,false,conns[m.from]||peerConn(m.from));
+ });
+}
+function hostHandle(from,d,self,c){
  if(self){if(d.t==='win')win(d.n,d.tm);return}
- const c=cc||conns[from];
  if(d.t==='hello'){
   if(Object.keys(lobby).length>=4||mode!=='room'){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
   conns[from]=c;const used=Object.values(lobby).map(v=>v.col);lobby[from]={n:String(d.n).slice(0,8),col:COLORS.find(x=>!used.includes(x))};bcLobby();
@@ -332,38 +345,33 @@ function hostHandle(from,d,self,cc){
 function netTick(){
  const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0};
  if(isHost){const ps={[myId]:{...me,n:myName,col:myColor}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,n:r.n,col:r.col}}
-  for(const id in conns)conns[id].open&&conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
- else hostConn&&hostConn.open&&hostConn.send({t:'st',...me});
+  for(const id in conns)conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
+ else hostConn&&hostConn.send({t:'st',...me});
 }
-async function join(code){
- getNick();code=code.replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
- lastCode=code;$('bRetry').classList.add('hide');st('連線中…');try{await loadPeer()}catch(e){st(e.message);return}
- try{peer&&peer.destroy()}catch(_){}peer=new Peer(POPT);roomCode=code;clearTimeout(joinTimer);
- const fail=m=>{clearTimeout(joinTimer);if(net)return;st(m);$('bRetry').classList.remove('hide');try{peer.destroy()}catch(_){}};
- joinTimer=setTimeout(()=>fail('連線逾時，請確認房主還在大廳'),12000);
- peer.on('open',id=>{myId=id;st('已連上伺服器，正在連線房主…');hostConn=peer.connect(PFX+code,{reliable:true});
-  hostConn.on('open',()=>{clearTimeout(joinTimer);net=true;isHost=false;hostConn.send({t:'hello',n:myName});openRoom()});
-  hostConn.on('data',safe(clientHandle));
-  hostConn.on('close',()=>{if(net){net=false;remotes={};toast('與房主斷線，改為單人模式');st('與房主斷線');if(mode==='room')leave()}});
+function join(code,auto){
+ getNick();code=String(code).replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
+ if(!auto)reconnTried=false;lastAction=()=>join(code);isHost=false;roomCode=code;
+ connect({t:'join',code,name:myName},m=>{
+  if(m.t==='joined'){clearTimeout(joinTimer);myId=m.id;net=true;remotes={};hostConn={open:true,send:d=>wsend({t:'msg',d})};hostConn.send({t:'hello',n:myName});openRoom()}
+  else if(m.t==='host-left'){net=false;remotes={};toast('房主離開了，房間已關閉');if(mode==='room'){leave(true);st('房主離開了，房間已關閉')}else st('房主離開了');try{ws&&ws.close()}catch(_){}ws=null}
+  else if(m.t==='msg')clientHandle(m.d);
  });
- peer.on('error',e=>fail(brokerErr(e.type)));
 }
 function clientHandle(d){
  if(d.t==='lobby')showLobby(d.pl);
- else if(d.t==='full'){st('房間已滿或已開始');net=false;leave()}
- else if(d.t==='start'){eatenPending=null;startGame(d.seed)}
+ else if(d.t==='full'){net=false;leave(true);st('房間已滿或已開始')}
+ else if(d.t==='start')startGame(d.seed);
  else if(d.t==='ps'){if(mode!=='play')return;lava=d.lava;if(d.lo)lavaOn=true;
   for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
   for(const id in remotes)if(!d.ps[id])delete remotes[id]}
  else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
  else if(d.t==='win')win(d.n,d.tm);
 }
-let eatenPending=null;
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('')}
-function leave(){try{peer&&peer.destroy()}catch(_){}peer=null;net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
- ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide')}
-function hostStart(){const s=Math.random()*1e9|0;for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
+function leave(keepStatus){const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
+ ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('')}
+function hostStart(){const s=Math.random()*1e9|0;wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
@@ -372,12 +380,12 @@ $('bSolo').onclick=()=>{getNick();net=false;myColor=COLORS[0];startGame(Math.ran
 $('bHost').onclick=host;
 $('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
 $('hintb').onclick=()=>{if(mode==='play'&&P&&!P.down){makeHint();progT=elapsed}};
-$('bRetry').onclick=()=>join(lastCode);
+$('bRetry').onclick=()=>lastAction&&lastAction();
 $('bJoin').onclick=()=>join($('code').value);
 $('bStart').onclick=hostStart;
-$('bLeave').onclick=leave;
+$('bLeave').onclick=()=>leave();
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
 $('bAgain').onclick=()=>{if(net&&isHost)hostStart();else if(!net)startGame(Math.random()*1e9|0)};
-$('bMenu').onclick=leave;
+$('bMenu').onclick=()=>leave();
 </script></body></html>
