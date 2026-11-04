@@ -752,7 +752,7 @@ function hostHandle(from,d,self,c){
   if(mid){pendingSnap.add(from);flushSnaps();const n=lobby[from].n;for(const id in conns)if(id!==from)conns[id].send({t:'pjoin',n});toast(`${n} 加入了遊戲`)}
  }else if(d.t==='pick'){const L=lobby[from];if(!L)return;if(d.g)L.g=d.g==='f'?'f':'m';
   if(d.c!=null&&!Object.entries(lobby).some(([id,v])=>id!==from&&v.ci===d.c)&&d.c>=0&&d.c<COLORS.length){L.ci=d.c;L.col=COLORS[d.c]}bcLobby();
- }else if(d.t==='st'){const L=lobbyList.find(p=>p.id===from)||lobby[from];if(L)remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:L.n,g:L.g,ci:L.ci})}
+ }else if(d.t==='st'){if(d.lv!=null&&d.lv!==LV)return;const L=lobbyList.find(p=>p.id===from)||lobby[from];if(L)remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:L.n,g:L.g,ci:L.ci})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);winSoon(d.n,d.tm)}
  else if(d.t==='lavaLow'){if(Number.isFinite(d.y)&&lava<d.y)lava=d.y}
@@ -783,7 +783,7 @@ function netTick(){
  const me={x:+P.x.toFixed(1),y:+P.y.toFixed(1),f:P.face,c:P.cling,d:P.down?1:0,a:ANIMS.indexOf(animOf(P))};
  if(isHost){const ps={[myId]:{...me,n:myName,g:myGender,ci:myCI}};for(const id in remotes){const r=remotes[id];ps[id]={x:r.x,y:r.y,f:r.f,c:r.c,d:r.d,a:r.a,n:r.n,g:r.g,ci:r.ci}}
   for(const id in conns)conns[id].send({t:'ps',ps,lava,lo:lavaOn})}
- else hostConn&&hostConn.send({t:'st',...me});
+ else hostConn&&hostConn.send({t:'st',...me,lv:LV});/* level-tagged so a stale pre-jump state can't pull the sprite onto the host */
 }
 function join(code,auto){
  getNick();code=String(code).replace(/\D/g,'');if(code.length!==4){st('請輸入 4 位數邀請碼');return}
