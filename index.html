@@ -21,6 +21,8 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 .b{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;pointer-events:auto;touch-action:none}
 .b.on{background:rgba(255,200,80,.5)}
 #status{min-height:20px;color:#ffd27a;font-size:14px}
+#hintb{position:fixed;left:12px;top:78px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:18px;z-index:3;padding:0;min-width:0}
+#ctl.hide~#hintb{display:none}
 #toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 </style></head><body>
 <canvas id="c"></canvas>
@@ -33,6 +35,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <div class="b" data-k="grab"  style="right:96px;bottom:20px;width:76px;height:76px">抓</div>
  <div class="b" data-k="jump"  style="right:10px;bottom:70px;width:76px;height:76px">跳</div>
 </div>
+<button id="hintb" aria-label="提示">？</button>
 <div id="menu" class="ov">
  <h1>攀巔</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
  <input id="nick" maxlength="8" placeholder="暱稱">
@@ -123,7 +126,7 @@ function startGame(s){
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';
  for(const id in remotes)Object.assign(remotes[id],{x:P.x,y:P.y,dx:P.x,dy:P.y});
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
- toast('從海灘出發！目標：山頂');
+ hint=null;bestY=P.y;progT=0;toast('從海灘出發！目標：山頂');
 }
 function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
@@ -142,7 +145,10 @@ function update(dt){
  const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
  if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*1.6);else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
  if(nearCamp&&P.camp!==nearCamp.b){P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
- if(P.down){P.downT-=dt;P.vx=0;P.vy=Math.min(900,P.vy+1000*dt);moveY(dt);if(P.downT<=0)respawn();return}
+ if(P.y<bestY-10){bestY=P.y;progT=elapsed}
+ if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
+ if(!P.down&&!hint&&elapsed-progT>9){makeHint();progT=elapsed}
+ if(P.down){hint=null;P.downT-=dt;P.vx=0;P.vy=Math.min(900,P.vy+1000*dt);moveY(dt);if(P.downT<=0)respawn();return}
  const ax=(K.right?1:0)-(K.left?1:0);if(ax)P.face=ax;
  const wl=touchWall(-1),wr=touchWall(1),wall=wl||wr;
  const MS=maxS(P);
@@ -180,6 +186,25 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
   if(net)send({t:'eat',id});
  }}
 
+
+// ---------- hint ----------
+let hint=null,bestY=0,progT=0;
+function makeHint(){
+ const feet=P.y+PH,cx=P.x+6;let best=null,bs=-1e9;
+ for(const r of rects){if(r.side||r.y>=0&&r.h>300)continue;
+  const up=feet-r.y;if(up<8||up>260)continue;
+  const tx=Math.max(r.x+6,Math.min(r.x+r.w-6,cx)),dx=Math.abs(tx-cx);if(dx>200)continue;
+  if(hit(tx-6,r.y-PH-1,PW,PH))continue;
+  const reach=up<=64&&dx<=150,sc=(reach?1000:0)+up-dx*.4;
+  if(sc>bs){bs=sc;best={r,tx,ty:r.y,reach,dx:tx-cx}}}
+ const walls=rects.filter(r=>r.h>=60&&r.y<P.y&&r.y+r.h>P.y-10);
+ let w=null,wd=1e9;for(const r of walls){const ex=r.x+r.w<cx?r.x+r.w:r.x>cx?r.x:null;if(ex===null)continue;const d=Math.abs(ex-cx);if(d<wd){wd=d;w={r,ex}}}
+ if(P.cling&&best&&!best.reach&&best.dx*-P.cling>0){hint={r:best.r,tx:best.tx,ty:best.ty,text:'蹬牆跳：抓牆時按跳',wj:1,sy:P.y};return}
+ if(best&&best.reach){hint={r:best.r,tx:best.tx,ty:best.ty,text:Math.abs(best.dx)<20?'往上跳到這個平台':best.dx<0?'往左跳到這個平台':'往右跳到這個平台',sy:P.y};return}
+ if(w){const top=Math.max(w.r.y,P.y-120);hint={r:w.r,wall:1,tx:w.ex,ty:top,text:(wd>8?(w.ex<cx?'往左走，':'往右走，'):'')+'按住「抓」爬上這面岩壁',sy:P.y};return}
+ if(best){hint={r:best.r,tx:best.tx,ty:best.ty,text:'往這個方向前進',sy:P.y};return}
+ toast('附近找不到路線，試試兩側岩壁');
+}
 // ---------- render ----------
 function render(dt){
  const s=CW/W*DPR,vh=CH/(CW/W);
@@ -211,6 +236,10 @@ function render(dt){
  drawP(P.x,P.y,myColor,P.face,P.cling,P.down,net?myName:'');
  for(const p of parts){ctx.globalAlpha=Math.max(0,p.l);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,2.5,2.5)}ctx.globalAlpha=1;
  if(b===2){ctx.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<40;i++){const x=(i*97+tt*20*(1+i%3))%W,y=camY+((i*53+tt*40*(1+i%2))%vh);ctx.fillRect(x,y,2,2)}}
+ if(hint){const pu=.5+.5*Math.sin(tt*6);ctx.strokeStyle=`rgba(255,240,80,${.5+pu*.5})`;ctx.lineWidth=2+pu;ctx.strokeRect(hint.r.x-2,hint.r.y-2,hint.r.w+4,Math.min(hint.r.h,hint.wall?hint.r.h:14)+4);
+  const x0=P.x+6,y0=P.y+9,dx=hint.tx-x0,dy=hint.ty-y0,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,len=Math.min(L-6,40+pu*10);
+  if(len>8){ctx.strokeStyle='#ffe94a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0+ux*12,y0+uy*12);const ex=x0+ux*(12+len),ey=y0+uy*(12+len);ctx.lineTo(ex,ey);ctx.stroke();
+   ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex+ux*7,ey+uy*7);ctx.lineTo(ex-uy*5,ey+ux*5);ctx.lineTo(ex+uy*5,ey-ux*5);ctx.fill()}}
  hud();
 }
 function drawP(x,y,col,f,cl,dn,name){
@@ -236,6 +265,9 @@ function hud(){
  ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-P.y/4)|0} m`,CW-12,y+14);
  ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4} m　${fmt(elapsed)}`,CW-12,y+32);
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
+ if(hint){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(CW/2-tw/2,124,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,142);
+  if(syT<60||syT>CH-215){const ey=syT<60?166:CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
  if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,col:myColor}],pw=150,px=CW-pw-8,py=y+40;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*15);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
@@ -331,6 +363,7 @@ const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value
 $('bSolo').onclick=()=>{getNick();net=false;myColor=COLORS[0];startGame(Math.random()*1e9|0)};
 $('bHost').onclick=host;
 $('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
+$('hintb').onclick=()=>{if(mode==='play'&&P&&!P.down){makeHint();progT=elapsed}};
 $('bJoin').onclick=()=>join($('code').value);
 $('bStart').onclick=hostStart;
 $('bLeave').onclick=leave;
