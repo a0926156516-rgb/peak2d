@@ -2,7 +2,7 @@
   "name": "panjian-peak2d-relay",
   "version": "1.0.0",
   "private": true,
-  "description": "WebSocket relay for 攀巔 2D co-op climbing game",
+  "description": "WebSocket relay for 攀岩 2D co-op climbing game",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=20" },

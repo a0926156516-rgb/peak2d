@@ -2,7 +2,7 @@
 <html lang="zh-TW"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="icon" href="data:,"><title>攀巔 — 2D 合作登山</title>
+<link rel="icon" href="data:,"><title>攀岩 — 2D 合作登山</title>
 <style>
 *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#111;touch-action:none;font-family:system-ui,"PingFang TC","Noto Sans TC",sans-serif;color:#fff;overscroll-behavior:none}
@@ -44,10 +44,10 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 </div>
 <button id="hintb" aria-label="提示">？</button>
 <div id="menu" class="ov">
- <h1>攀巔</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
+ <h1>攀岩</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
  <input id="nick" maxlength="8" placeholder="暱稱">
  <div id="pick"></div>
- <button id="bSolo">單人遊玩</button>
+ <button id="bSolo">繼續 · 第1關</button><button id="bLvs" class="alt">選擇關卡</button>
  <button id="bHost" class="alt">建立房間</button>
  <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
  <div id="status"></div><button id="bRetry" class="alt hide">重試連線</button>
@@ -56,14 +56,18 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 <div id="room" class="ov hide">
  <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
  <button id="bCopy" class="alt">複製分享連結</button>
- <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul><div id="rpick"></div>
+ <div id="pcount" style="font-weight:700">玩家 1/4</div><ul id="plist"></ul><div id="rpick"></div><div id="rlvw">關卡 <select id="rlv" style="font-size:16px;padding:4px"></select></div>
  <button id="bStart">開始遊戲</button><div id="wait" class="sub">等待房主開始…</div>
  <div id="rstatus" style="color:#ffd27a;font-size:14px"></div>
  <button id="bLeave" class="alt">離開</button>
 </div>
+<div id="lvs" class="ov hide">
+ <h2 style="margin:0">選擇關卡</h2><div id="lvgrid" style="display:grid;grid-template-columns:repeat(5,52px);gap:6px;max-height:60vh;overflow:auto;padding:4px"></div>
+ <button id="bLvBack" class="alt">返回</button>
+</div>
 <div id="end" class="ov hide">
  <h1 id="etitle" style="font-size:36px">登頂成功！</h1><p id="einfo"></p>
- <button id="bAgain">再玩一次</button><button id="bMenu" class="alt">回到主選單</button>
+ <button id="bNext">下一關</button><button id="bAgain" class="alt">再玩一次</button><button id="bMenu" class="alt">回到主選單</button>
 </div>
 <script>
 "use strict";
@@ -77,7 +81,8 @@ document.addEventListener('touchmove',e=>{if(e.target.tagName!=='INPUT')e.preven
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('dblclick',e=>e.preventDefault());
 
-const W=360,BL=1500,NB=4,TOP=-BL*NB;
+const W=360,NLV=50;let BL=1500,NB=4,TOP=-6000,LV=1,DIFF=0;
+function levelCfg(lv){LV=Math.max(1,Math.min(NLV,lv|0));DIFF=(LV-1)/(NLV-1);const H=1200+DIFF*5200;NB=LV<4?2:LV<13?3:4;BL=Math.round(H/NB/4)*4;TOP=-BL*NB}
 const BIOMES=[
  {n:'海灘',rock:'#cfa86a',edge:'#efd49a',sky:['#7ec8f0','#f7e3b5']},
  {n:'叢林',rock:'#4f7a3a',edge:'#7fb34f',sky:['#5fae9a','#c9e8b0']},
@@ -135,25 +140,90 @@ function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t
 
 // ---------- world ----------
 let rects,foods,camps,eaten;
-function genWorld(seed){
- const R=rng(seed);rects=[];foods=[];camps=[];eaten=new Set();
+function genWorld(lv,sd,tries=0){levelCfg(lv);
+ const R=rng(sd!=null?sd:LV*7919+104729);rects=[];foods=[];camps=[];eaten=new Set();
  rects.push({x:-60,y:0,w:W+120,h:400});
- rects.push({x:-60,y:TOP-600,w:60,h:-TOP+1000,side:1},{x:W,y:TOP-600,w:60,h:-TOP+1000,side:1});
- for(let b=1;b<NB;b++){const y=-b*BL;rects.push({x:70,y,w:220,h:16});camps.push({x:180,y,b})}
- let fid=0;
- for(let y=-60;y>TOP+70;y-=50+R()*22){
-  if(camps.some(c=>Math.abs(c.y-y)<45))continue;
-  const n=R()<.55?2:1;
-  for(let i=0;i<n;i++){
-   const w=36+R()*80,x=i?(R()<.5?R()*(W/2-w):W/2+R()*(W/2-w)):R()*(W-w);
-   const r={x,y,w,h:14};rects.push(r);
-   if(R()<.22)foods.push({id:fid++,x:x+w/2,y:y-7,k:R()<.6?'berry':'mush'});
-  }
-  if(R()<.3){const h=80+R()*90;rects.push({x:20+R()*(W-60),y:y-h,w:18,h})}
+ rects.push({x:-60,y:TOP-800,w:60,h:-TOP+1200,side:1},{x:W,y:TOP-800,w:60,h:-TOP+1200,side:1});
+ for(let b=1;b<NB;b++)camps.push({x:180,y:-b*BL,b});
+ let fid=0;const peakR={x:110,y:TOP,w:140,h:14,peak:1};
+ // ---- critical path: every ledge is reachable from the previous one with a safety margin
+ // rise <= 48px (~70% of the 68px max jump), side gap <= 24px, and no path ledge hangs within 90px above another's take-off area
+ const rmin=26+DIFF*14,gmax=10+DIFF*14,wmax=112-DIFF*52,path=[{x:W/2-30,y:0,w:60}];let side=R()<.5?-1:1;
+ const clear=(r)=>{for(let k=path.length-2;k>=Math.max(0,path.length-6);k--){const q=path[k];if(Math.abs(q.y-r.y)<89&&r.x<q.x+q.w+16&&r.x+r.w>q.x-16)return false}return true};
+ const place=(y,w0,wmin,h,extra)=>{const prev=path[path.length-1];let fb=null;
+  for(let t=0;t<14;t++){const sd2=t<7?side:-side,g=6+R()*gmax;let w=w0;
+   let x=sd2>0?prev.x+prev.w+g:prev.x-g-w;if(x<0){w+=x;x=0}if(x+w>W)w=W-x;
+   if(w<wmin)continue;const r=Object.assign({x,y,w,h},extra);if(!fb)fb=r;if(clear(r)){side=sd2;return r}}
+  for(let G=24;G<=56;G+=4)for(const sd2 of[side,-side])for(let w=w0;w>=wmin;w-=8){// turn: wider gap so the new ledge clears older take-off spots
+   const x=sd2>0?prev.x+prev.w+G:prev.x-G-w;if(x<0||x+w>W)continue;const r=Object.assign({x,y:extra.peak||extra.camp?y:Math.max(y,prev.y-36),w,h},extra);if(clear(r)){side=sd2;return r}}
+  if(fb)return fb;const w=wmin,x=side>0?Math.min(W-w,prev.x+prev.w+6):Math.max(0,prev.x-6-w);return Object.assign({x,y,w,h},extra)};
+ const miles=[...camps.map(c=>({y:c.y,c})),{y:TOP,peak:1}];let mi=0,turn=false;
+ for(let guard=0;guard<2000&&mi<miles.length;guard++){const prev=path[path.length-1],m=miles[mi];
+  const rise=turn?45:rmin+R()*6,ny=prev.y-rise;
+  if(ny<=m.y+20){turn=false;// milestone (campfire / summit) sits wherever the path arrives near its nominal height
+   if(m.peak){const r=place(ny,140,70,14,{peak:1});Object.assign(peakR,r);TOP=peakR.y;path.push(peakR);mi++;break}
+   const r=place(ny,120,64,16,{camp:1,path:1});rects.push(r);m.c.x=r.x+r.w/2;m.c.y=r.y;path.push(r);mi++;continue}
+  const r=place(ny,40+R()*(wmax-40),40,14,{path:1});rects.push(r);path.push(r);
+  // approaching a wall: this rise and the turn's rise are both 45px so the turn ledge clears the old take-off spot
+  const room=side>0?W-r.x-r.w:r.x,need=r.y-rmin-6<=m.y+20?(m.peak?84:78):52;turn=false;if(room<need){r.y=prev.y-45;turn=true}
+  if(R()<.22)foods.push({id:fid++,x:r.x+r.w/2,y:r.y-7,k:R()<.6?'berry':'mush'});
+  if(R()<.75-DIFF*.4){const w=40+R()*60,x=R()*(W-w);rects.push({x,y:r.y,w,h:14,ex:1});if(R()<.25)foods.push({id:fid++,x:x+w/2,y:r.y-7,k:R()<.5?'berry':'mush'})}
+  if(R()<.1+DIFF*.25){const h=80+R()*90,px=20+R()*(W-60);rects.push({x:px,y:r.y-h,w:18,h,pil:1})}
  }
- rects.push({x:110,y:TOP,w:140,h:24,peak:1});
+ // side ledges / pillars must stay out of the critical-path corridors
+ for(let i=rects.length-1;i>=0;i--){const r=rects[i];if(!(r.ex||r.pil))continue;
+  let bad=false;for(let k=0;k+1<path.length&&!bad;k++){const a=path[k],b=path[k+1];
+   if(r.ex){if(Math.abs(a.y-r.y)<100&&r.x<a.x+a.w+34&&r.x+r.w>a.x-34)bad=true}
+   else{const lo=Math.min(a.x,b.x)-24,hi=Math.max(a.x+a.w,b.x+b.w)+24;if(r.x<hi&&r.x+r.w>lo&&r.y<a.y&&r.y+r.h>b.y-PH-70)bad=true}}
+  if(bad){rects.splice(i,1);}}
+ foods=foods.filter(f=>rects.some(r=>!r.side&&f.x>=r.x&&f.x<=r.x+r.w&&Math.abs(f.y+7-r.y)<1));
+ rects.push(peakR);
+ ensurePath();
+ if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
-function hit(x,y,w,h){for(const r of rects)if(x<r.x+r.w&&x+w>r.x&&y<r.y+r.h&&y+h>r.y)return r;return null}
+// ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
+const NAV_DT=1/60;let NAV_JV=370*.9,NAV_AS=140*.85;// 90% jump speed = 81% jump height, 85% air speed
+let NAV=null;
+function buildNodes(){const nodes=[];
+ for(const r of rects){if(r.side)continue;const x0=Math.max(r.x,0),x1=Math.min(r.x+r.w,W)-PW;let a=null;
+  for(let x=x0;x<=x1+.01;x+=2){const free=!hit(x,r.y-PH-.01,PW,PH-.02);if(free&&a===null)a=x;if((!free||x+2>x1+.01)&&a!==null){const b=free?x:x-2;if(b>=a)nodes.push({r,a,b,y:r.y-PH,id:nodes.length});a=null}}}
+ return nodes}
+function navInit(){const nodes=buildNodes(),byR=new Map();for(const n of nodes){if(!byR.has(n.r))byR.set(n.r,[]);byR.get(n.r).push(n)}NAV={nodes,byR,edges:new Map()};return NAV}
+function nodeAt(r,x){const L=NAV.byR.get(r);if(!L)return null;let best=null,bd=1e9;for(const n of L){const d=x<n.a?n.a-x:x>n.b?x-n.b:0;if(d<bd){bd=d;best=n}}return bd<=10?best:null}
+function simJump(sx,sy,dir,rel,L,run,jv,as){jv=jv||NAV_JV;as=as||NAV_AS;let x=sx,y=sy-.01,vx=run?dir*as*.9:0,vy=-jv,t=0;
+ const H=(x,y)=>{for(const r of L)if(x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y)return r;return null};
+ for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*5);vy=Math.min(900,vy+1000*NAV_DT);
+  x+=vx*NAV_DT;let r=H(x,y);if(r){x=vx>0?r.x-PW:r.x+r.w;vx=0}
+  y+=vy*NAV_DT;r=H(x,y);if(r){if(vy>0)return vy>600?null:{r,x};y=r.y+r.h;vy=0}
+  if(y>sy+260)return null}return null}
+const RELS=[1e9,.3,.15];
+function edgesOf(n){if(NAV.edges.has(n.id))return NAV.edges.get(n.id);const out=[],seen=new Set();
+ const L=rects.filter(r=>r.y<n.y+PH+280&&r.y+r.h>n.y-120);
+ const xs=new Set([n.a,n.b]);for(let x=n.a+16;x<n.b-4;x+=16)xs.add(x);
+ for(const sx0 of xs){const sx=Math.round(sx0/2)*2;for(const dir of[-1,0,1])for(const run of dir?[0,1]:[0]){if(run&&(dir>0?sx-n.a:n.b-sx)<30)continue;for(const rel of dir?RELS:[1e9]){const l=simJump(sx,n.y,dir,rel,L,run);if(!l)continue;const m=nodeAt(l.r,l.x);if(!m||m===n||seen.has(m.id))continue;seen.add(m.id);out.push({to:m,sx,dir,rel,run})}}}
+ NAV.edges.set(n.id,out);return out}
+function navSearch(start){// BFS from start node; returns {goal path edges} or {best reached}
+ const prev=new Map([[start.id,null]]),q=[start];let best=start;
+ while(q.length){const n=q.shift();if(n.r.peak){const path=[];let c=n;while(prev.get(c.id)){const e=prev.get(c.id);path.unshift(e.e);c=e.from}return{ok:true,path,goal:n}}
+  if(n.y<best.y)best=n;for(const e of edgesOf(n))if(!prev.has(e.to.id)){prev.set(e.to.id,{from:n,e});q.push(e.to)}}
+ return{ok:false,best}}
+function ensurePath(){// repair seeds without a guaranteed route: add a helper ledge above the highest reachable spot
+ for(let it=0;it<80;it++){navInit();const st=nodeAt(rects[0],W/2-6);const res=navSearch(st);if(res.ok){NAV.path=res.path;NAV.repairs=it;return}
+  if(window.NAVDBG)console.log("it",it,res.best.y|0,res.best.a|0,res.best.b|0);const b=res.best,peak=rects.find(r=>r.peak),w=56,near=b.r.y-TOP<100;
+  const tx=near?peak.x+peak.w/2:W/2,cx=(b.a+b.b)/2+6;
+  // put the helper beside (not above) the reachable ledge, offset toward the target, rise 44px
+  let ny=near?Math.max(TOP+30,b.r.y-44):b.r.y-44,side=(tx>=cx?1:-1)*(it%2?-1:1);
+  let x=side>0?b.b+PW+6:b.a-6-w;if(x<4||x+w>W-4){side=-side;x=side>0?b.b+PW+6:b.a-6-w}
+  x=Math.max(4,Math.min(W-w-4,x));
+  if(near&&ny<=TOP+30){ny=b.r.y-44;}
+  const nr={x,y:ny,w,h:14,fix:1};
+  for(let i=rects.length-1;i>0;i--){const r=rects[i];if(r.side||r.peak||r.camp||r===b.r)continue;if(r.x<nr.x+nr.w+PW+4&&r.x+r.w>nr.x-PW-4&&r.y<nr.y+nr.h+4&&r.y+r.h>nr.y-PH-70)rects.splice(i,1)}
+  rects.push(nr)}
+ navInit();NAV.path=null;console.warn('ensurePath: could not repair')}
+function standNode(){// node the player stands on, or lands on if dropping straight down
+ if(!NAV||!P)return null;for(let d=0;d<400;d+=2){const r=hit(P.x,P.y+d+1,PW,PH);if(r){if(r.side)return null;return nodeAt(r,P.x)}}return null}
+function routeFrom(n){if(!n)return null;const r=navSearch(n);return r.ok?r.path:null}
+function hit(x,y,w,h){const E=1e-6;for(const r of rects)if(x<r.x+r.w-E&&x+w>r.x+E&&y<r.y+r.h-E&&y+h>r.y+E)return r;return null}
 
 // ---------- state ----------
 const PW=12,PH=18;
@@ -175,29 +245,38 @@ document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
 const pressed=k=>K[k]&&!prev[k];
 
 // ---------- game flow ----------
+function prog(){try{return JSON.parse(localStorage.pj_prog||'{}')}catch(_){return{}}}
+function cleared(){return prog().c||0}
+function nextLv(){return Math.min(NLV,cleared()+1)}
+function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!g.b[lv]||t<g.b[lv])g.b[lv]=+t.toFixed(1);try{localStorage.pj_prog=JSON.stringify(g)}catch(_){}}
+function renderLv(){const n=nextLv();$('bSolo').textContent=`繼續 · 第${n}關`;const g=prog(),b=g.b||{};
+ $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const e=document.createElement('button');const ok=i<=n;e.disabled=!ok;
+  e.style.cssText='min-width:0;width:52px;height:46px;padding:0;font-size:15px;line-height:1.1;'+(ok?'':'opacity:.35');
+  e.innerHTML=i+(b[i]?`<br><small style="font-size:9px">${fmt(b[i])}</small>`:'');e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};$('lvgrid').appendChild(e)}
+ const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n)}}
 function startGame(s){
  seed=s;genWorld(seed);P=newPlayer();checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';
  for(const id in remotes)Object.assign(remotes[id],{x:P.x,y:P.y,dx:P.x,dy:P.y});
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
- hint=null;bestY=P.y;progT=0;toast('從海灘出發！目標：山頂');
+ hint=null;bestY=P.y;progT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
 }
 function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
-function win(name,time){if(mode!=='play')return;mode='end';$('ctl').classList.add('hide');
- $('etitle').textContent='登頂成功！';$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
- $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost)}
+function win(name,time){if(mode!=='play')return;mode='end';$('ctl').classList.add('hide');saveClear(LV,time);renderLv();
+ $('etitle').textContent=`第${LV}關 登頂成功！`;$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
+ $('end').classList.remove('hide');$('bAgain').classList.toggle('hide',net&&!isHost);$('bNext').classList.toggle('hide',(net&&!isHost)||LV>=NLV)}
 const fmt=t=>`${Math.floor(t/60)}分${String(Math.floor(t%60)).padStart(2,'0')}秒`;
 const esc=s=>String(s).replace(/[<>&"]/g,c=>'&#'+c.charCodeAt(0)+';');
 
 function touchWall(d){return hit(d<0?P.x-2:P.x+PW,P.y+2,2,PH-4)}
 function update(dt){
- elapsed=(performance.now()-t0)/1000;
+ elapsed=window.BOT?BOT.t:(performance.now()-t0)/1000;
  const b=biomeAt(P.y);
  // hunger & cold
  P.hun=Math.min(45,P.hun+dt*.35);
  const nearCamp=camps.find(c=>Math.abs(c.x-(P.x+6))<60&&Math.abs(c.y-(P.y+PH))<40);
- if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*1.6);else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
+ if(b===2&&!nearCamp)P.cold=Math.min(40,P.cold+dt*(1.3+DIFF*.8));else P.cold=Math.max(0,P.cold-dt*(nearCamp?20:3));
  if(nearCamp&&P.camp!==nearCamp.b){P.camp=nearCamp.b;checkpoint={x:nearCamp.x-6,y:nearCamp.y-PH-1};toast(`營火！進入${BIOMES[nearCamp.b].n}（已存檔）`);puff(nearCamp.x,nearCamp.y-6,'#ffb347',20)}
  if(P.y<bestY-10){bestY=P.y;progT=elapsed}
  if(hint&&(P.y<hint.sy-30||P.y<=hint.ty-PH+2&&Math.abs(P.x+6-hint.tx)<30))hint=null;
@@ -208,9 +287,9 @@ function update(dt){
  const MS=maxS(P);
  if(K.grab&&wall&&P.stam>0){if(!P.cling)P.cling=wl?-1:1}else P.cling=0;
  if(P.cling){
-  const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.6:1;
+  const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
   P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up?30:0);
-  P.stam-=(7+up*13)*slip*dt*(b===2?1.2:1);
+  P.stam-=(7+up*13)*slip*dt*(b===2?1.1+DIFF*.2:1);
   if(pressed('jump')&&P.stam>4){P.vy=-340;P.vx=-P.cling*170;P.stam-=12;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
@@ -227,7 +306,7 @@ function update(dt){
  for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
  // lava
  if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+250;toast('熔岩開始上漲！快爬！')}
- if(lavaOn&&(!net||isHost))lava-=dt*7;
+ if(lavaOn&&(!net||isHost))lava-=dt*(5+DIFF*5);
  if(P.y+PH>lava+4){down();P.downT=Math.min(P.downT,1.5)}
  if(P.ground&&P.y+PH<=TOP+1){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});win(myName,t)}
 }
@@ -244,21 +323,11 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 // ---------- hint ----------
 let hint=null,bestY=0,progT=0;
 function makeHint(){
- const feet=P.y+PH,cx=P.x+6;let best=null,bs=-1e9;
- for(const r of rects){if(r.side||r.y>=0&&r.h>300)continue;
-  const up=feet-r.y;if(up<8||up>260)continue;
-  const tx=Math.max(r.x+6,Math.min(r.x+r.w-6,cx)),dx=Math.abs(tx-cx);if(dx>200)continue;
-  if(hit(tx-6,r.y-PH-1,PW,PH))continue;
-  const reach=up<=64&&dx<=150,sc=(reach?1000:0)+up-dx*.4;
-  if(sc>bs){bs=sc;best={r,tx,ty:r.y,reach,dx:tx-cx}}}
- const walls=rects.filter(r=>r.h>=60&&r.y<P.y&&r.y+r.h>P.y-10);
- let w=null,wd=1e9;for(const r of walls){const ex=r.x+r.w<cx?r.x+r.w:r.x>cx?r.x:null;if(ex===null)continue;const d=Math.abs(ex-cx);if(d<wd){wd=d;w={r,ex}}}
- if(P.cling&&best&&!best.reach&&best.dx*-P.cling>0){hint={r:best.r,tx:best.tx,ty:best.ty,text:'蹬牆跳：抓牆時按跳',wj:1,sy:P.y};return}
- if(best&&best.reach){hint={r:best.r,tx:best.tx,ty:best.ty,text:Math.abs(best.dx)<20?'往上跳到這個平台':best.dx<0?'往左跳到這個平台':'往右跳到這個平台',sy:P.y};return}
- if(w){const top=Math.max(w.r.y,P.y-120);hint={r:w.r,wall:1,tx:w.ex,ty:top,text:(wd>8?(w.ex<cx?'往左走，':'往右走，'):'')+'按住「抓」爬上這面岩壁',sy:P.y};return}
- if(best){hint={r:best.r,tx:best.tx,ty:best.ty,text:'往這個方向前進',sy:P.y};return}
- toast('附近找不到路線，試試兩側岩壁');
-}
+ const n=standNode(),path=routeFrom(n);
+ if(!path||!path.length){toast('先站穩在平台上，再按「？」');return}
+ const e=path[0],t=e.to,tx=Math.max(t.a,Math.min(t.b,P.x))+6,need=e.sx-P.x;
+ const text=Math.abs(need)>8?(need<0?'往左走一點，再':'往右走一點，再')+(e.dir<0?'往左跳':e.dir>0?'往右跳':'往上跳'):(e.dir<0?'往左跳到這個平台':e.dir>0?'往右跳到這個平台':'往上跳到這個平台');
+ hint={r:t.r,tx,ty:t.r.y,text,sy:P.y,reach:1}}
 // ---------- render ----------
 function render(dt){
  const s=CW/W*DPR,vh=CH/(CW/W);
@@ -311,9 +380,9 @@ function hud(){
  ctx.fillStyle=P.stam<20?'#ff7a3a':'#ffd04a';ctx.fillRect(x,y+14,P.stam*u,14);
  ctx.font='bold 13px sans-serif';ctx.textAlign='left';ctx.fillStyle='#fff';ctx.fillText('體力',x,y+9);
  ctx.font='11px sans-serif';ctx.fillText(`傷 ${P.inj|0}  飢 ${P.hun|0}  寒 ${P.cold|0}`,x+40,y+9);
- ctx.fillText(BIOMES[biomeAt(P.y)].n+(net?`  · ${Object.keys(remotes).length+1}人`:''),x,y+42);
- ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-P.y/4)|0} m`,CW-12,y+14);
- ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4} m　${fmt(elapsed)}`,CW-12,y+32);
+ ctx.fillText(`第${LV}關 · `+BIOMES[biomeAt(P.y)].n+(net?`  · ${Object.keys(remotes).length+1}人`:''),x,y+42);
+ ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-(P.y+PH)/4)|0} m`,CW-12,y+14);
+ ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4|0} m　${fmt(elapsed)}`,CW-12,y+32);
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(hint){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
   ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(CW/2-tw/2,124,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,142);
@@ -330,7 +399,7 @@ function hud(){
 let last=performance.now(),netT=0;
 function loop(now){
  const dt=Math.min(.033,(now-last)/1000);last=now;
- if(mode==='play'&&P)update(dt);
+ if(mode==='play'&&P&&!window.BOT)update(dt);
  for(const k in K)prev[k]=K[k];
  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=300*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);
  for(const id in remotes){const r=remotes[id];const a=Math.min(1,dt*12);r.dx+=(r.x-r.dx)*a;r.dy+=(r.y-r.dy)*a}
@@ -470,25 +539,29 @@ function clientHandle(d){
  else if(d.t==='win')win(d.n,d.tm);
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
- $('bStart').classList.toggle('hide',!isHost);$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
+ $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
 function leave(keepStatus){connGen++;clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('');renderPickers()}
-function hostStart(){const s=Math.random()*1e9|0;wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
+function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
 renderPickers();
 const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.replace(/\D/g,'').slice(0,4);st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
-$('bSolo').onclick=()=>{getNick();net=false;startGame(Math.random()*1e9|0)};
+$('bSolo').onclick=()=>{getNick();net=false;startGame(nextLv())};
+$('bLvs').onclick=()=>{renderLv();$('menu').classList.add('hide');$('lvs').classList.remove('hide')};
+$('bLvBack').onclick=()=>{$('lvs').classList.add('hide');$('menu').classList.remove('hide')};
+$('bNext').onclick=()=>{const n=Math.min(NLV,LV+1);if(net&&isHost)hostStart(n);else if(!net)startGame(n)};
+renderLv();
 $('bHost').onclick=host;
 $('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
 $('hintb').onclick=()=>{if(mode==='play'&&P&&!P.down){makeHint();progT=elapsed}};
 $('bRetry').onclick=()=>lastAction&&lastAction();
 $('bJoin').onclick=()=>join($('code').value);
-$('bStart').onclick=hostStart;
+$('bStart').onclick=()=>hostStart();
 $('bLeave').onclick=()=>leave();
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
-$('bAgain').onclick=()=>{if(net&&isHost)hostStart();else if(!net)startGame(Math.random()*1e9|0)};
+$('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)};
 $('bMenu').onclick=()=>leave();
 </script></body></html>
