@@ -475,7 +475,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  if(P.ground&&!P.cling)P.stam+=55*dt;
  P.stam=Math.max(0,Math.min(P.stam,MS));if(DBG_INF){P.stam=MS;P.hun=0;P.cold=0}
  P.x+=P.vx*dt;let rx=hit(P.x,P.y,PW,PH);if(rx&&!window.BOT&&!P.cling&&!K.grab){const dn=rx.y+rx.h-P.y;if(dn>0&&dn<=5&&!hit(P.x,rx.y+rx.h+.01,PW,PH)){P.y=rx.y+rx.h+.01;rx=null}}/* head snag: slide under a ledge corner */if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
- if(P.jh&&!K.jump){if(P.vy<-220)P.vy=-220;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
+ if(P.jh&&!K.jump){if(P.vy<-170)P.vy=-170;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
  const vy=P.vy;moveY(dt);if(JLOG&&JLOG.x1==null)JLOG.mx=Math.max(JLOG.mx,Math.abs(P.x-JLOG.x0));
  P.teet=0;if(!window.BOT&&P.ground&&!P.cling){/* no standing on a sliver: if the body's centre is past every supporting edge, slide off (unless walking back in) */const fy=P.y+PH,s=rects.filter(q=>!q.side&&Math.abs(q.y-fy)<.6&&P.x<q.x+q.w&&P.x+PW>q.x);if(s.length){const lo=Math.min(...s.map(q=>q.x)),hi=Math.max(...s.map(q=>q.x+q.w)),c=P.x+6;if(c<lo||c>hi){const d=c<lo?-1:1;const nx=P.x+d*Math.max(1.5,60*dt);if(ax!==-d&&!hit(nx,P.y,PW,PH))P.x=nx;else{/* wedged against a wall: settle back onto the rock instead of hovering */const bx=d>0?hi-7:lo-5;if(!hit(bx,P.y,PW,PH))P.x=bx}}else P.teet=(c<lo+4||c>hi-4)&&Math.abs(P.vx)<20&&!ax?(c<lo+4?-1:1):0}}
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
