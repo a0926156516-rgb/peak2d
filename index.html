@@ -577,8 +577,7 @@ function drawP(x,y,g,ci,f,an,dn,name,me){
  const na=Math.max(0,Math.min(1,4-(t-nameT0)));y-=PH*(sc-1);
  if(name&&na>0){ctx.globalAlpha=na;ctx.font='bold 12px sans-serif';ctx.textAlign='center';const tw=ctx.measureText(name).width+8,cx=x+6;ctx.fillStyle=COLORS[ci]||'#888';ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-tw/2,y-22,tw,15,4):ctx.rect(cx-tw/2,y-22,tw,15);ctx.fill();ctx.beginPath();ctx.moveTo(cx-3,y-7);ctx.lineTo(cx+3,y-7);ctx.lineTo(cx,y-4);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(name,cx,y-10.5);ctx.globalAlpha=1}
 }
- try{layoutLanes()}catch(_){}
-function hud(dt=0){{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=$('toast'),tt=te?te.getBoundingClientRect().top:175;mileY=Math.max(CH*.3,(tt-cr.top+96)*sc)}
+function hud(dt=0){try{layoutLanes()}catch(_){}{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=$('toast'),tt=te?te.getBoundingClientRect().top:175;mileY=Math.max(CH*.3,(tt-cr.top+96)*sc)}
  ctx.setTransform(DPR,0,0,DPR,0,0);
  const t=performance.now()/1000,bw=Math.min(260,CW-96),x=12,y=12,MS=maxS(P),low=P.stam<MS*.2,fl=low&&Math.sin(t*14)>0;
  ctx.fillStyle='rgba(10,16,28,.55)';rrect(x-6,y-6,bw+12,58,10);ctx.fill();
