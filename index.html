@@ -32,7 +32,6 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <div class="b" data-k="down"  style="left:64px;bottom:6px">▼</div>
  <div class="b" data-k="grab"  style="right:96px;bottom:20px;width:76px;height:76px">抓</div>
  <div class="b" data-k="jump"  style="right:10px;bottom:70px;width:76px;height:76px">跳</div>
- <div class="b" data-k="help"  style="right:24px;bottom:160px;width:54px;height:54px;font-size:16px">助</div>
 </div>
 <div id="menu" class="ov">
  <h1>攀巔</h1><p class="sub">2D 合作登山 · 最多 4 人</p>
@@ -41,7 +40,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
  <button id="bHost" class="alt">建立房間</button>
  <div style="display:flex;gap:6px"><input id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4位數邀請碼" style="width:130px"><button id="bJoin" class="alt" style="min-width:80px">加入房間</button></div>
  <div id="status"></div>
- <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充（蘑菇有好有壞）。<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點。多人時靠近隊友按「助」可拉隊友一把，或救起倒地隊友。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓、E 助</div>
+ <div class="help"><b>玩法</b><br>從海灘出發，穿越叢林、雪山，抵達火山口之巔！<br>・抓住岩壁攀爬會消耗<b style="color:#ffd04a">體力</b>，站在地面才會恢復。體力耗盡就會掉下去。<br>・摔傷（紅）、飢餓（橘）、寒冷（藍）會降低體力上限。吃莓果與蘑菇補充（蘑菇有好有壞）。<br>・叢林藤蔓濕滑；雪地會失溫；火山熔岩會上漲。<br>・營火是存檔點，倒下後會在最後到達的營火重生。<br><b>鍵盤</b>：方向鍵/WASD 移動、空白鍵 跳、Shift/K 抓</div>
 </div>
 <div id="room" class="ov hide">
  <h2 style="margin:0">邀請碼</h2><div id="rcode" style="font-size:40px;letter-spacing:8px;font-weight:800">-----</div>
@@ -109,7 +108,7 @@ function puff(x,y,c,n,sp=80){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random
 
 // ---------- input ----------
 const K={},prev={};
-const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab',KeyE:'help'};
+const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab'};
 addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=km[e.code];if(k){K[k]=1;e.preventDefault()}});
 addEventListener('keyup',e=>{const k=km[e.code];if(k)K[k]=0});
 document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
@@ -126,7 +125,7 @@ function startGame(s){
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
  toast('從海灘出發！目標：山頂');
 }
-function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=net?15:1.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast(net?'倒地了！等待隊友救援…':'倒下了…')}
+function down(){if(P.down)return;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toast('倒下了…即將在營火重生')}
 function respawn(){Object.assign(P,{x:checkpoint.x,y:checkpoint.y,vx:0,vy:0,down:false,inj:P.inj*.5,cold:0});P.stam=maxS(P);toast('於營火處重生')}
 function win(name,time){if(mode!=='play')return;mode='end';$('ctl').classList.add('hide');
  $('etitle').textContent='登頂成功！';$('einfo').innerHTML=(net?`<b>${esc(name)}</b> 率先登頂！<br>`:'')+`用時 ${fmt(time)}`;
@@ -171,7 +170,6 @@ function update(dt){
  if(lavaOn&&(!net||isHost))lava-=dt*7;
  if(P.y+PH>lava+4){down();P.downT=Math.min(P.downT,1.5)}
  if(P.ground&&P.y+PH<=TOP+1){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});win(myName,t)}
- if(pressed('help'))tryHelp();
 }
 function moveY(dt){P.y+=P.vy*dt;P.ground=false;const r=hit(P.x,P.y,PW,PH);if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true}else P.y=r.y+r.h;P.vy=0}}
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;
@@ -181,19 +179,6 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
   else{P.inj=Math.min(80,P.inj+15);P.stam*=.5;toast('毒蘑菇！頭好暈…');puff(f.x,f.y,'#a4f',10)}
   if(net)send({t:'eat',id});
  }}
-function tryHelp(){
- let best=null,bd=50;
- for(const id in remotes){const r=remotes[id];const d=Math.hypot(r.dx-P.x,r.dy-P.y);if(d<bd){bd=d;best=id}}
- if(!best){toast('附近沒有隊友');return}
- const r=remotes[best];
- if(r.d){send({t:'help',to:best,k:'revive',n:myName});toast(`救起了 ${r.n}！`)}
- else if(P.stam>=20){P.stam-=20;send({t:'help',to:best,k:'boost',n:myName});toast(`拉了 ${r.n} 一把！`)}
- else toast('體力不足，無法幫忙');
-}
-function onHelp(d){
- if(d.k==='revive'&&P.down){P.down=false;P.inj=Math.max(0,P.inj-40);P.stam=30;toast(`${d.n} 救起了你！`)}
- else if(d.k==='boost'){P.cling=0;P.vy=-430;P.stam=Math.min(maxS(P),P.stam+30);toast(`${d.n} 拉了你一把！`)}
-}
 
 // ---------- render ----------
 function render(dt){
@@ -250,13 +235,13 @@ function hud(){
  ctx.fillText(BIOMES[biomeAt(P.y)].n+(net?`  · ${Object.keys(remotes).length+1}人`:''),x,y+42);
  ctx.textAlign='right';ctx.font='bold 18px sans-serif';ctx.fillText(`${Math.max(0,-P.y/4)|0} m`,CW-12,y+14);
  ctx.font='12px sans-serif';ctx.fillText(`/ ${-TOP/4} m　${fmt(elapsed)}`,CW-12,y+32);
- if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(net?`倒地 ${Math.ceil(P.downT)} 秒後重生`:'倒下了…',CW/2,CH*.4)}
+ if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,col:myColor}],pw=150,px=CW-pw-8,py=y+40;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*15);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
   L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+29+i*15;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
    ctx.fillStyle='#fff';ctx.font='10px sans-serif';const alt=me?-P.y:r?-r.y:0;
-   ctx.fillText(`${p.n} #${p.h?roomCode:sid(p.id)}${me?'(你)':''} ${Math.max(0,alt/4)|0}m${(me?P.down:r&&r.d)?' 倒地':''}`,px+18,yy)})}
+   ctx.fillText(`${p.n} #${p.h?roomCode:sid(p.id)}${me?'(你)':''} ${Math.max(0,alt/4)|0}m${(me?P.down:r&&r.d)?' 重生中':''}`,px+18,yy)})}
 }
 
 // ---------- loop ----------
@@ -297,14 +282,13 @@ async function host(){
  peer.on('disconnected',()=>{try{peer.reconnect()}catch(_){}});
 }
 function hostHandle(from,d,self,cc){
- if(self){if(d.t==='help'&&d.to===myId)onHelp(d);if(d.t==='win')win(d.n,d.tm);return}
+ if(self){if(d.t==='win')win(d.n,d.tm);return}
  const c=cc||conns[from];
  if(d.t==='hello'){
   if(Object.keys(lobby).length>=4||mode!=='room'){c.send({t:'full'});setTimeout(()=>c.close(),300);return}
   conns[from]=c;const used=Object.values(lobby).map(v=>v.col);lobby[from]={n:String(d.n).slice(0,8),col:COLORS.find(x=>!used.includes(x))};bcLobby();
  }else if(d.t==='st'){if(lobby[from])remotes[from]=Object.assign(remotes[from]||{dx:d.x,dy:d.y},d,{n:lobby[from].n,col:lobby[from].col})}
  else if(d.t==='eat'){eaten.add(d.id);for(const id in conns)conns[id].send({t:'eaten',id:d.id})}
- else if(d.t==='help'){if(d.to===myId)onHelp(d);else conns[d.to]&&conns[d.to].send(d)}
  else if(d.t==='win'){for(const id in conns)conns[id].send(d);win(d.n,d.tm)}
 }
 function netTick(){
@@ -332,7 +316,6 @@ function clientHandle(d){
   for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign(remotes[id]||{dx:v.x,dy:v.y},v)}
   for(const id in remotes)if(!d.ps[id])delete remotes[id]}
  else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
- else if(d.t==='help'){if(d.to===myId)onHelp(d)}
  else if(d.t==='win')win(d.n,d.tm);
 }
 let eatenPending=null;
