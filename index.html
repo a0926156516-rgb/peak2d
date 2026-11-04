@@ -52,7 +52,7 @@ input{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:0;width
 #hintb{position:fixed;left:12px;top:78px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:18px;z-index:3;padding:0;min-width:0}
 #ctl.hide~#hintb{display:none}
 #dbg input,#dbg button{font-size:12px!important;padding:2px 5px!important;min-width:0!important;border-radius:5px;height:24px}#dbg input[type=checkbox]{width:16px;height:16px}
-small.cpb{display:block;width:fit-content;margin-left:auto;margin-right:auto;background:linear-gradient(#ff8a2a,#d9420f);color:#fff!important;border-radius:8px;padding:0 5px;margin-top:1px;font-weight:800;box-shadow:0 0 0 1.5px #fff8,0 0 6px #ff7a1a;text-shadow:0 1px 1px #0006}
+small.cpb{display:block;font-size:12px!important;padding:1px 6px!important;width:fit-content;margin-left:auto;margin-right:auto;background:linear-gradient(#ff8a2a,#d9420f);color:#fff!important;border-radius:8px;padding:0 5px;margin-top:1px;font-weight:800;box-shadow:0 0 0 1.5px #fff8,0 0 6px #ff7a1a;text-shadow:0 1px 1px #0006}
 @keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}#toast.tin{animation:tin .25s ease-out}
 #toast{position:fixed;top:175px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;font-weight:700;text-shadow:0 2px 3px #000}
 .cp{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0}
@@ -237,11 +237,17 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  rects.push(peakR);PEAK=peakR;
  ensurePath();
  // early levels: catch ledges beside the first path ledges so a missed jump doesn't drop all the way to the beach; kept only if the validated route stays intact
- if(DIFF<.35&&NAV.path){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
+ if(DIFF<.35&&(NAV&&NAV.path)){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
   if(rects.some(q=>q!==rects[0]&&q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
   rects.push({x,y,w,h:10,ex:1,catch:1});navInit();const res=navSearch(nodeAt(rects[0],W/2-6));if(res.ok&&res.path.length<=L0){NAV.path=res.path;added++}else rects.pop()}}navInit();NAV.path=navSearch(nodeAt(rects[0],W/2-6)).path}
+ // long-drop catch ledges (all levels): where a path ledge has nothing within ~22m below it, add a small ledge ~9m below beside it; deterministic, kept only if the validated route stays intact
+ if((NAV&&NAV.path)){const L0=NAV.path.length;let added=0;const below=(r,x0,x1)=>{let d=1e9;for(const q of rects)if(q!==r&&!q.side&&q.y>r.y+4&&q.x<x1&&q.x+q.w>x0)d=Math.min(d,q.y-r.y);return d};
+  for(let i=2;i<path.length-1&&added<8;i++){const r=path[i];if(r.peak||r.camp||r.y>-PH-120)continue;const sides=r.x+r.w/2<W/2?[1,-1]:[-1,1];for(const sd of sides){const w=30,x=sd<0?r.x-w-PW-6:r.x+r.w+PW+6,y=r.y+36,lo=sd<0?x-10:r.x,hi=sd<0?r.x+r.w:x+w+10;if(below(r,lo,hi)<88)break;if(x<2||x+w>W-2)continue;
+   if(rects.some(q=>q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
+   rects.push({x,y,w,h:10,ex:1,catch:2});added++;break}}
+  if(added){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));if(!(res&&res.ok&&res.path.length<=L0)){/* drop them one at a time from the top until the route is intact */const C=rects.filter(q=>q.catch===2).sort((a,b)=>a.y-b.y);for(const c of C){rects.splice(rects.indexOf(c),1);navInit();res=navSearch(nodeAt(rects[0],W/2-6));if(res&&res.ok&&res.path.length<=L0)break}}navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}
  // opening terrain varies by level (step / wall / stair / plain beach); kept only if the validated route stays intact
- const k=opKind(LV),hv=(Math.imul(LV,2654435761)>>>8)&255;if(NAV.path&&k){const p1=path[1]||{x:W/2,w:0},pr=(p1.x+p1.w/2<W/2)!==!!(hv&64),sh=hv&16?6:0;
+ const k=opKind(LV),hv=(Math.imul(LV,2654435761)>>>8)&255;if((NAV&&NAV.path)&&k){const p1=path[1]||{x:W/2,w:0},pr=(p1.x+p1.w/2<W/2)!==!!(hv&64),sh=hv&16?6:0;
   // try several spots on both sides of the spawn until one fits without crowding ledges and keeps the route valid
   const cands=[];for(const rt of[pr,!pr])for(const bx of rt?[194,214,236,256,280,300]:[118,98,72,50,30,14])cands.push([rt,bx+sh]);
   let done=0;const pk=LV>1?opKind(LV-1):-1;for(const kk of[k,...[1+k%3,1+(k+1)%3].sort((a,b)=>(a===pk)-(b===pk))]){if(done)break;for(const[rt,bx]of(kk===pk&&kk!==k?cands.slice().reverse():cands)){const k=kk;
@@ -252,7 +258,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(op.some(o=>o.x<4||o.x+o.w>W-4||rects.some(q=>q!==rects[0]&&!q.side&&o.x<q.x+q.w+PW&&o.x+o.w>q.x-PW&&o.y-PH-4<q.y+q.h&&o.y+o.h>q.y)))continue;
    const n0=rects.length,keep=NAV.path;for(const o of op)rects.push(Object.assign(o,{ex:1,op:1}));navInit();const res=navSearch(nodeAt(rects[0],W/2-6));
    if(res.ok){NAV.path=res.path;done=1;break}rects.length=n0;navInit();NAV.path=keep}}}
- if(!NAV.path&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
+ if(!(NAV&&NAV.path)&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
 const JV=390,AIRV=88,JCAP=110,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=AIRV*.85;// 90% jump speed = 81% jump height, 85% air speed
@@ -265,7 +271,7 @@ function navInit(){const nodes=buildNodes(),byR=new Map();for(const n of nodes){
 function nodeAt(r,x){const L=NAV.byR.get(r);if(!L)return null;let best=null,bd=1e9;for(const n of L){const d=x<n.a?n.a-x:x>n.b?x-n.b:0;if(d<bd){bd=d;best=n}}return bd<=10?best:null}
 function simJump(sx,sy,dir,rel,L,run,jv,as){jv=jv||NAV_JV;as=as||NAV_AS;let x=sx,y=sy-.01,vx=run?dir*as*.9:0,vy=-jv,t=0;
  const H=(x,y)=>{for(const r of L)if(x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y)return r;return null};
- for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*(ax?5:10));vy=Math.min(900,vy+1000*NAV_DT);
+ for(let i=0;i<200;i++){t+=NAV_DT;const ax=t<rel?dir:0;vx+=(ax*as-vx)*Math.min(1,NAV_DT*(ax?5:6));vy=Math.min(900,vy+1000*NAV_DT);
   x+=vx*NAV_DT;let r=H(x,y);if(r){x=vx>0?r.x-PW:r.x+r.w;vx=0}
   y+=vy*NAV_DT;r=H(x,y);if(r){if(vy>0)return vy>600?null:{r,x};y=r.y+r.h;vy=0}
   if(y>sy+260)return null}return null}
@@ -431,8 +437,8 @@ function update(dt){try{auSteps(dt)}catch(_){}
   if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
-  P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:10));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;puff(P.x+6,P.y+PH,'#eee',5)}
+  P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:6));
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,r0:fr,x1:null}}puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
@@ -452,7 +458,8 @@ function update(dt){try{auSteps(dt)}catch(_){}
   else if(P.vy>-300)P.vy=-420}
  if(P.ground&&P.y+PH<=TOP+1&&!winPend){const t=elapsed;if(net)send({t:'win',n:myName,tm:t});winSoon(myName,t)}
 }
-function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;const r=hit(P.x,P.y,PW,PH);if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true;if(!wg&&v0>160&&!window.BOT){P.lt=performance.now()/1000;P.lp=Math.min(1,v0/600);const bi=biomeAt(r.y),dc=bi===0?'#e9cf98':bi===2?'#ffffff':bi===1?'#b8a67a':'#8a6a5a';puff(P.x+6,P.y+PH,dc,6+P.lp*10|0,90+P.lp*80,2.5+P.lp*2)}}else P.y=r.y+r.h;P.vy=0}}
+function moveY(dt){const wg=P.ground,v0=P.vy;P.y+=P.vy*dt;P.ground=false;let r=hit(P.x,P.y,PW,PH);if(!r&&P.vy>0&&!P.cling&&!P.down&&!window.BOT){const f0=P.y-P.vy*dt+PH,f1=P.y+PH;for(const q of rects){if(q.side||f0>q.y+.5||f1<q.y)continue;const gl=q.x-(P.x+PW),gr=P.x-(q.x+q.w);let nx=null;if(gl>-.01&&gl<=9)nx=q.x-PW+3;else if(gr>-.01&&gr<=9)nx=q.x+q.w-3;if(nx!=null&&!hit(nx,q.y-PH-.01,PW,PH)){P.x=nx;P.y=q.y-PH-.01;r=q;break}}}/* edge assist: nudge onto a ledge missed by <=9px */
+ if(r){if(P.vy>0){P.y=r.y-PH;P.ground=true;if(DEBUG&&JLOG&&JLOG.x1==null&&!wg){JLOG.x1=P.x;JLOG.np=r!==JLOG.r0}if(!wg&&v0>160&&!window.BOT){P.lt=performance.now()/1000;P.lp=Math.min(1,v0/600);const bi=biomeAt(r.y),dc=bi===0?'#e9cf98':bi===2?'#ffffff':bi===1?'#b8a67a':'#8a6a5a';puff(P.x+6,P.y+PH,dc,6+P.lp*10|0,90+P.lp*80,2.5+P.lp*2)}}else P.y=r.y+r.h;P.vy=0}}
 function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f=>f.id===id);if(!f)return;flash(f.x,f.y,f.k==='berry'?'#ff6a80':'#fff2c0');
  if(mine){sfx('pick');
   if(f.k==='berry'){P.hun=Math.max(0,P.hun-22);P.stam+=15;toast('莓果！飢餓減少');puff(f.x,f.y,'#e33',8)}
@@ -464,7 +471,7 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 
 
 // ---------- hint ----------
-let hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
+let dbgPI=-1,JLOG=null,hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
 function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
  if(!path||!path.length){if(quiet)hint=null;else toast('先站穩在平台上，再按「？」');return}
@@ -599,11 +606,11 @@ function hud(dt=0){{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1),te=
  if(P.down){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillText(`重生中… ${Math.ceil(P.downT)}`,CW/2,CH*.4)}
  if(mileT>0&&mode==='play'&&!winPend){mileT-=dt;ctx.save();ctx.globalAlpha=Math.min(1,mileT*2);ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.55)';const my=mileY-(1.8-mileT)*14;ctx.strokeText(mileTxt,CW/2,my);ctx.fillStyle='#ffe25a';ctx.fillText(mileTxt,CW/2,my);ctx.restore()}
  if(hint&&mode==='play'&&!winPend){const s2=CW/W,syT=(hint.ty-camY)*s2;let tip=hint.text;if(P.stam<maxS(P)*.3&&!hint.wj)tip='體力不足，先站在地面回體力';
-  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';const gp=innerWidth<520?14:6;let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124+(gp-6),net?roomB+gp+2:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);const box=[];for(const id of['toast','dbg']){const el=$(id);if(!el||(id==='toast'&&!(toastT>0&&el.textContent)))continue;const r=el.getBoundingClientRect();if(!r.height||!r.width)continue;box.push([(r.left-cr.left)*sc,(r.top-cr.top)*sc,(r.right-cr.left)*sc,(r.bottom-cr.top)*sc])}
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';const tw=ctx.measureText(tip).width+20;ctx.fillStyle='rgba(0,0,0,.6)';const gp=innerWidth<520?14:6;let hy=Math.max(bannerT>0?Math.max(118,CH*.17)+34:124+(gp-6),net?roomB+gp+2:0);{const cr=cv.getBoundingClientRect(),sc=CH/(cr.height||1);const box=[];for(const id of['toast','dbg']){const el=$(id);if(!el)continue;const r=el.getBoundingClientRect();if(id==='toast'){/* fixed toast lane: reserved even when empty so a toast arriving later never covers the hint */const lh=Math.max(r.height,26);box.push([0,(r.top-cr.top)*sc-4,CW,(r.top-cr.top+lh)*sc+2]);continue}if(!r.height||!r.width)continue;box.push([(r.left-cr.left)*sc,(r.top-cr.top)*sc,(r.right-cr.left)*sc,(r.bottom-cr.top)*sc])}
   if(mileT>0)box.push([0,mileY-30,CW,mileY+10]);// keep re-checking until the hint clears every box (bounded)
   for(let it=0,mv=1;mv&&it<8;it++){mv=0;for(const[l,t,rr,bt]of box)if(rr>CW/2-tw/2&&l<CW/2+tw/2&&bt>hy-4&&t<hy+30){hy=bt+gp;mv=1}}}{const s3=CW/W;for(let k=0;k<3;k++){const f=foods.find(f=>!eaten.has(f.id)&&Math.abs(f.x*s3-CW/2)<tw/2+12&&(f.y-camY)*s3>hy-14&&(f.y-camY)*s3<hy+40);if(!f)break;hy=(f.y-camY)*s3+18}}if(tip!==hTip){hTip=tip;hFA=0}hFA=Math.min(1,hFA+dt*3.5);ctx.globalAlpha=hFA;ctx.fillRect(CW/2-tw/2,hy,tw,26);ctx.fillStyle='#ffe94a';ctx.fillText(tip,CW/2,hy+18);ctx.globalAlpha=1;
   if(syT<60||syT>CH-215){const ey=syT<60?(bannerT>0?Math.max(118,CH*.17)+76:166):CH-225,ex=Math.max(20,Math.min(CW-20,hint.tx*s2)),d=syT<60?-1:1,pu=Math.sin(performance.now()/150)*4;ctx.fillStyle='#ffe94a';ctx.beginPath();ctx.moveTo(ex,ey+d*(14+pu));ctx.lineTo(ex-12,ey+pu*d);ctx.lineTo(ex+12,ey+pu*d);ctx.fill()}}
- if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+40;roomB=py+20+L.length*16;
+ if(net){const L=lobbyList.length?lobbyList:[{id:myId,n:myName,g:myGender,ci:myCI}],pw=160,px=58,py=y+60;roomB=py+20+L.length*16;
   ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(px,py,pw,20+L.length*16);ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';
   ctx.fillText(`房 ${roomCode} · 人數 ${L.length}/4`,px+6,py+14);
   L.forEach((p,i)=>{const me=p.id===myId,r=remotes[p.id],yy=py+30+i*16;ctx.fillStyle=COLORS[p.ci]||'#fff';ctx.beginPath();ctx.arc(px+10,yy-4,4,0,7);ctx.fill();
@@ -764,7 +771,7 @@ function clientHandle(d){
   if(!d.only)for(const id in remotes)if(!d.ps[id])delete remotes[id]}
  else if(d.t==='eaten'||d.t==='eat')eaten.add(d.id);
  else if(d.t==='win')winSoon(d.n,d.tm);
- else if(d.t==='tp'){if(mode==='play')dbgTeleport(d.m,1)}
+ else if(d.t==='tp'){if(mode==='play')dbgTeleport(d.m,1,d.pi)}
 }
 function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classList.add('hide');$('room').classList.remove('hide');$('rcode').textContent=roomCode;
  $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
@@ -797,21 +804,22 @@ $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+
 $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)};
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
-function dbgTeleport(m,fromHost){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m});const ty=-m*4-PH,np=net?Math.max(1,lobbyList.length):1,need=(np-1)*56+PW+4;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const a=Math.max(n.a,6),bb=Math.min(n.b,W-PW-6);if(bb<a)continue;const d=Math.abs(n.y-ty)+(bb-a<need?400:0);if(!best||d<best.d)best={n,d}}
- if(!best)return;const n=best.n;const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;// players get evenly spaced slots (>=56px apart) inside the ledge and the visible level; food only nudges the whole group
- const A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6),span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>!eaten.has(f.id)&&Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y,tp:1};camY=P.y-200;hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);mileT=0;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m`,'tp')}
+function dbgPlats(){return NAV.nodes.filter(n=>!n.r.side&&Math.min(n.b,W-PW-6)-Math.max(n.a,6)>=0).sort((a,b)=>b.y-a.y||a.a-b.a)}
+function dbgTeleport(m,fromHost,pi){if(!P||mode!=='play')return;if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m,pi});const ty=-m*4-PH,np=net?Math.max(1,lobbyList.length):1,need=(np-1)*56+PW+4;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const a=Math.max(n.a,6),bb=Math.min(n.b,W-PW-6);if(bb<a)continue;const d=Math.abs(n.y-ty)+(bb-a<need?400:0);if(!best||d<best.d)best={n,d}}
+ if(pi!=null&&pi>=0){const L=dbgPlats();best={n:L[Math.min(L.length-1,pi|0)]}}if(!best||!best.n)return;const n=best.n;dbgPI=dbgPlats().indexOf(n);const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;// players get evenly spaced slots (>=56px apart) inside the ledge and the visible level; food only nudges the whole group
+ const A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6),span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y,tp:1};camY=P.y-200;hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);mileT=0;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m · 平台 #${dbgPI}`,'tp')}
 function dbgZone(b){if(b>NB-1){toast(`已是最後一區（本關只有 ${NB} 區，山頂 ${Math.max(0,-TOP/4)|0} m）`,'tp');return}dbgTeleport(Math.max(0,b*BL/4+2))}
 if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cssText='position:fixed;left:6px;top:calc(118px + env(safe-area-inset-top));max-width:min(330px,94vw)!important;z-index:9;background:rgba(0,0,0,.75);color:#fff;font:12px sans-serif;padding:4px 6px;border-radius:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;max-width:96vw';
- d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
+ d.innerHTML='<button id="dCol">🐞</button><span id="dBody" style="display:contents">DBG 關<input id="dLv" type="number" min=1 max='+NLV+' value=1 style="width:42px"><button id="dGo">跳關</button> m<input id="dM" type="number" value=50 style="width:48px"><button id="dTp">傳送</button><button id="dZ">下一區</button> 平台#<input id="dP" type="number" min=0 value=0 style="width:42px"><button id="dPg">傳送</button><div id="dJ" style="flex-basis:100%;font:11px monospace;color:#ffe94a"></div><label><input id="dInf" type="checkbox">∞體力</label><div id="dHelp" style="flex-basis:100%;font-size:11px;opacity:.8"></div></span>';
  document.body.appendChild(d);d.querySelectorAll('button').forEach(b=>{b.style.cssText='min-width:0;padding:2px 6px;font-size:12px;margin:0';b.tabIndex=-1;b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>b.blur())});
  // keyboard never activates debug controls (Space after a click used to re-press 跳關/傳送); keys still reach the game
  addEventListener('keydown',e=>{const t=e.target;if(t&&t.closest&&t.closest('#dbg')&&t.tagName!=='INPUT'){t.blur();if(e.key===' '||e.key==='Enter')e.preventDefault()}},true);d.addEventListener('change',e=>{if(e.target.type==='checkbox')e.target.blur()});
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth='230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  $('dGo').onclick=()=>go(+$('dLv').value);$('dTp').onclick=()=>dbgTeleport(+$('dM').value);$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
- $('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
- const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
+ $('dPg').onclick=()=>dbgTeleport(0,0,+$('dP').value|0);setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;j.textContent=(JLOG?`跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台':'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
+ const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· p/P 平台#±1 · i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
   if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
-  else if(k>='1'&&k<='4')dbgZone(+k-1);else if(k==='i'){DBG_INF=!DBG_INF;$('dInf').checked=DBG_INF;toast('∞體力 '+(DBG_INF?'開':'關'))}})}
+  else if(k>='1'&&k<='4')dbgZone(+k-1);else if(k==='p'||k==='P'){const v=Math.max(0,(dbgPI<0?0:dbgPI)+(k==='p'?1:-1));$('dP').value=v;dbgTeleport(0,0,v)}else if(k==='i'){DBG_INF=!DBG_INF;$('dInf').checked=DBG_INF;toast('∞體力 '+(DBG_INF?'開':'關'))}})}
 </script></body></html>
