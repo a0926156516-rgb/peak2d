@@ -262,7 +262,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  // would exceed FALLMAX a small ledge is added ~10m below, under the simulated fall line (world edges included); repeated so new ledges are
  // covered too. Each one is checked against the validated route by re-simulating every route jump near it; deterministic; final search guards.
  if(NAV&&NAV.path){const FALLMAX=38,add=[];
-  const simFall=(sx,sy,dir,hold,D)=>{const L=rects.filter(r=>!r.side&&r.y>sy+PH-1&&r.y<sy+PH+D+2||r.side&&r.y<sy+PH+D&&r.y+r.h>sy);let x=sx,y=sy,vx=dir*AIRV*.9,vy=0,xd=null;
+  const simFall=(sx,sy,dir,hold,D,k=.9)=>{const L=rects.filter(r=>!r.side&&r.y>sy+PH-1&&r.y<sy+PH+D+2||r.side&&r.y<sy+PH+D&&r.y+r.h>sy);let x=sx,y=sy,vx=dir*AIRV*k,vy=0,xd=null;
    for(let i=0;i<240;i++){const ax=hold?dir:0;vx+=(ax*AIRV-vx)*Math.min(1,NAV_DT*(ax?5:6));vy=Math.min(900,vy+1000*NAV_DT);x+=vx*NAV_DT;x=Math.max(0,Math.min(W-PW,x));
     for(const r of L)if(r.side&&x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y){x=vx>0?r.x-PW:r.x+r.w;vx=0}
     const y1=y+vy*NAV_DT;for(const r of L)if(!r.side&&x<r.x+r.w&&x+PW>r.x&&y+PH<=r.y+.01&&y1+PH>=r.y)return{d:r.y-(sy+PH),x,xd};y=y1;if(xd===null&&y>=sy+40)xd=x;if(y-sy>D)return{d:1e9,x,xd}}return{d:1e9,x,xd}};
@@ -298,7 +298,29 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
     const tryN=m=>{rects.length=0;rects.push(...keep,...live.slice(0,m));navInit();const r=navSearch(nodeAt(rects[0],W/2-6));return r&&r.ok};
     while(lo<hi){const m=(lo+hi)>>1;if(tryN(m+1))lo=m+1;else hi=m}rects.length=0;rects.push(...keep,...live.filter((c,i)=>i!==lo));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
    if(!(res&&res.ok)){for(const q of add)if(q.wid){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!add.includes(q)||q.wid))}
-   navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}
+   navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}
+  RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path||[]){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
+  {const A2=[];
+  {/* Round 19: half-step fill. Any edge whose walk-off still drops >8.5m gets a small step 5-9m below under the fall line (both directions checked); denser steps between rows, deterministic, route-checked */
+   const FM=34,clear=(x,y,w)=>x>=0&&x+w<=W&&!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W))return false;const g=Math.abs(q.y-y)<20?PW+2:2;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-3<q.y+q.h&&y+10+PH+3>q.y});
+   for(let pass=0;pass<4;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+    for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;
+     const f0=[simFall(sx,sy,sd,1,FM),simFall(sx,sy,sd,0,FM),simFall(sx,sy,sd,0,FM,.5),simFall(sx,sy,sd,1,FM,.5),simFall(sx,sy,sd,0,FM,.2)];if(f0.every(f=>f.d<=FM))continue;let ok=0;{/* narrow slot next to a ledge at about the same height: bridge it instead */const nb=rects.find(q=>q!==r&&!q.side&&!q.peak&&Math.abs(q.y-r.y)<=8&&q.h<=14&&(sd>0?q.x-e:e-(q.x+q.w))>0&&(sd>0?q.x-e:e-(q.x+q.w))<PW+18);
+      if(nb&&!r.camp){const ox=r.x,ow=r.w;if(sd>0)r.w=nb.x-r.x;else{r.w=r.x+r.w-(nb.x+nb.w);r.x=nb.x+nb.w}if(routeOK(r)){A2.push(r);r.wid=r.wid||Object.assign([ox,ow],{r19:1});n++;continue}r.x=ox;r.w=ow}
+      const nl=rects.find(q=>q!==r&&q!==rects[0]&&!q.side&&!q.peak&&!q.camp&&q.h<=14&&q.y-r.y>8&&q.y-r.y<=44&&(sd>0?q.x-e:e-(q.x+q.w))>0&&(sd>0?q.x-e:e-(q.x+q.w))<PW+26);
+      if(nl){const ox=nl.x,ow=nl.w;if(sd>0){nl.w=nl.x+nl.w-e;nl.x=e}else nl.w=e-nl.x;if(!rects.some(t=>t!==nl&&t!==r&&!t.side&&t.x<nl.x+nl.w&&t.x+t.w>nl.x&&t.y<nl.y+nl.h+PH+2&&t.y+t.h>nl.y-PH-2)&&routeOK(nl)){A2.push(nl);nl.wid=nl.wid||Object.assign([ox,ow],{r19:1});n++;continue}nl.x=ox;nl.w=ow}}
+     for(const D of[32,28,24,36,20,40])for(const w of[36,48,28,60])for(const off of[0,-8,8,-16,16,-26,26,-34,34]){if(ok)break;const y=r.y+D;if(y>-100)continue;
+      const c=sd>0?e+off:e-w+off;let x=Math.round(Math.max(0,Math.min(W-w,c)));let ww=w;if(x<PW+6){ww+=x;x=0}if(W-(x+ww)<PW+6)ww=W-x;if(!clear(x,y,ww))continue;
+      const q={x,y,w:ww,h:10,ex:1,catch:4};rects.push(q);const f1=[simFall(sx,sy,sd,1,FM),simFall(sx,sy,sd,0,FM),simFall(sx,sy,sd,0,FM,.5),simFall(sx,sy,sd,1,FM,.5),simFall(sx,sy,sd,0,FM,.2)];
+      if(f1.every(f=>f.d<=FM)&&routeOK(q)){A2.push(q);n++;ok=1}else rects.pop()}}
+    if(!n)break}}
+   if(A2.length){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));
+    for(let it=0;it<40&&!(res&&res.ok);it++){/* drop the new steps around where the route search got stuck (one search per round) */const live=A2.filter(c=>rects.includes(c));if(!live.length||!res||!res.best)break;const by=res.best.r.y;
+     let near=live.filter(c=>Math.abs(c.y-by)<150);if(!near.length)near=[live.reduce((a,c)=>Math.abs(c.y-by)<Math.abs(a.y-by)?c:a)];
+     for(const c of near){if(c.wid&&c.wid.r19){c.x=c.wid[0];c.w=c.wid[1];A2.splice(A2.indexOf(c),1)}else rects.splice(rects.indexOf(c),1)}navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
+    if(!(res&&res.ok)){for(const q of A2)if(q.wid&&q.wid.r19){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!A2.includes(q)||q.wid));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
+    if(res&&res.ok)NAV.path=res.path}}
+  }
  if(!(NAV&&NAV.path)&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
