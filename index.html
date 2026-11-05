@@ -475,17 +475,17 @@ function update(dt){try{auSteps(dt)}catch(_){}
   const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
   P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up&&!dn?18*DIFF:0);
   P.stam-=((1.2+5.8*DIFF)+up*(2.3+10.7*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
-  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.jt=0;P.jy0=P.y;P.jf=61;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.jt=0;P.jrt=performance.now();P.jy0=P.y;P.jf=61;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
   P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:6));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.jt=0;P.jy0=P.y;P.jf=JV*JV/2000;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,y0:P.y,pk:0,r0:fr,x1:null,mx:0}}puff(P.x+6,P.y+PH,'#eee',5)}
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.jt=0;P.jrt=performance.now();P.jy0=P.y;P.jf=JV*JV/2000;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,y0:P.y,pk:0,r0:fr,x1:null,mx:0}}puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
  P.stam=Math.max(0,Math.min(P.stam,MS));if(DBG_INF){P.stam=MS;P.hun=0;P.cold=0}
  P.x+=P.vx*dt;let rx=hit(P.x,P.y,PW,PH);if(rx&&!window.BOT&&!P.cling&&!K.grab){const dn=rx.y+rx.h-P.y;if(dn>0&&dn<=5&&!hit(P.x,rx.y+rx.h+.01,PW,PH)){P.y=rx.y+rx.h+.01;rx=null}}/* head snag: slide under a ledge corner */if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
- if(P.jh){P.jt=(P.jt||0)+dt;if(!K.jump||JREL){/* game-time hold -> target apex: tap (<=0.1s) = 50% of full, rising to 100% by 0.35s */const F=P.jf||72.8,H=F*(P.jt<=.1?.5:.5+.5*Math.min(1,(P.jt-.1)/.25)),rem=H-((P.jy0??P.y)-P.y),v=-Math.sqrt(2000*Math.max(0,rem));if(P.vy<v)P.vy=v;P.jh=0}}JREL=0;if(P.vy>=0)P.jh=0;/* release (even between frames, via JREL) caps rise to JCUT -> tap ≈ half height */// variable jump height: release early = lower hop
+ if(P.jh){P.jt=(P.jt||0)+dt;if(!K.jump||JREL){/* hold time (max of game time and real time, so a slow clock can't shorten it) -> target apex: tap (<=0.08s) = 50% of full, 100% by 0.28s */const ht=Math.max(P.jt,P.jrt?(performance.now()-P.jrt)/1000:0),F=P.jf||72.8,H=F*(ht<=.08?.5:.5+.5*Math.min(1,(ht-.08)/.2)),rem=H-((P.jy0??P.y)-P.y),v=-Math.sqrt(2000*Math.max(0,rem));if(P.vy<v)P.vy=v;P.jh=0}}JREL=0;if(P.vy>=0)P.jh=0;/* release (even between frames, via JREL) caps rise to JCUT -> tap ≈ half height */// variable jump height: release early = lower hop
  const vy=P.vy;moveY(dt);if(JLOG&&JLOG.x1==null){JLOG.mx=Math.max(JLOG.mx,Math.abs(P.x-JLOG.x0));JLOG.pk=Math.max(JLOG.pk,JLOG.y0-P.y)}
  P.teet=0;if(!window.BOT&&P.ground&&!P.cling){/* no standing on a sliver: if the body's centre is past every supporting edge, slide off (unless walking back in) */const fy=P.y+PH,s=rects.filter(q=>!q.side&&Math.abs(q.y-fy)<.6&&P.x<q.x+q.w&&P.x+PW>q.x);if(s.length){const lo=Math.min(...s.map(q=>q.x)),hi=Math.max(...s.map(q=>q.x+q.w)),c=P.x+6;if(c<lo||c>hi){const d=c<lo?-1:1;const nx=P.x+d*Math.max(1.5,60*dt);if(ax!==-d&&!hit(nx,P.y,PW,PH))P.x=nx;else{/* wedged against a wall: settle back onto the rock instead of hovering */const bx=d>0?hi-7:lo-5;if(!hit(bx,P.y,PW,PH))P.x=bx}}else P.teet=(c<lo+8||c>hi-8)&&Math.abs(P.vx)<20&&!ax?(c<lo+8?-1:1):0;if(P.teet&&Math.random()<dt*18)parts.push({x:P.teet<0?lo-3:hi+3,y:fy+1,vx:P.teet*(6+Math.random()*14),vy:25+Math.random()*35,l:.9,c:Math.random()<.5?'#4a3520':'#f2e2bc',s:2.5,ng:0})}}
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
