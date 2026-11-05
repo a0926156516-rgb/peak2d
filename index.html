@@ -581,7 +581,7 @@ function drawP(x,y,g,ci,f,an,dn,name,me){
  const t=performance.now()/1000,low=me&&!dn&&P.stam<maxS(P)*.2,sc=VS();
  let qx=1,qy=1,rot=0,bob=0;const fc=f||1;if(me&&!dn&&P&&P.teet)rot+=Math.sin(t*15)*.11*P.teet;/* teeter at an edge */
  if(!dn){if(an==='walk'){bob=-Math.abs(Math.sin(t*13))*1.4;rot=.07*fc;qy=1+.03*Math.sin(t*26)}
-  else if(an==='fall'){rot=-.12*fc;qy=1.07;qx=.95}else if(an==='jump'){qy=1.1;qx=.92}
+  else if(an==='fall'){rot=me&&P&&P.vy>420?-.08*fc:0;/* short hops stay level */qy=1.07;qx=.95}else if(an==='jump'){qy=1.1;qx=.92}
   if(me&&P.lt){const k=(t-P.lt)/.22;if(k<1){const e=Math.sin(k*Math.PI)*(P.lp||.5);qy=1-.32*e;qx=1+.3*e;rot=0}}}
  if(me&&!dn&&P&&P.teet){ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.ellipse(x+6+P.teet*3,y+PH+1.5,9,2.6,0,0,7);ctx.fill();ctx.strokeStyle='rgba(255,240,200,.8)';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(x+6+P.teet*3,y+PH+1.5,9,2.6,0,0,7);ctx.stroke()}/* teeter shadow */
  const hw=7*sc;if(an!=='climb')x=Math.max(hw-6,Math.min(W-6-hw,x));/* keep the whole sprite inside the world (right/left edge) */
