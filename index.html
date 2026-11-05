@@ -309,7 +309,7 @@ function hit(x,y,w,h){const E=1e-6;for(const r of rects)if(!r.gone&&x<r.x+r.w-E&
 
 // ---------- state ----------
 const PW=12,PH=18;
-let bannerZ=0,bannerT=0;let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
+let bannerZ=0,bannerT=0;let lavaTo=0;let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
 const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
 let toastQ=[],toastTag='';function toast(s,tag){const el=$('toast');if(!el)return;if(tag){toastQ=toastQ.filter(q=>q.tag!==tag);if(toastTag===tag&&toastT>0){el.textContent=s;toastT=1.2;return}if(toastT>0&&toastTag===''&&bannerT<=0){toastQ.unshift({s:el.textContent,tag:''})}if(bannerT<=0){el.textContent=s;toastTag=tag;toastT=1.2;return}toastQ.unshift({s,tag});return}if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.some(q=>q.s===s)){toastQ.push({s,tag:''});if(toastQ.length>3)toastQ.shift()}if(!toastTag)toastT=Math.min(toastT,.9);return}el.textContent=s;toastTag='';toastT=2.5;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')}
@@ -388,7 +388,7 @@ function loadGame(s,after){if(window.BOT||!$('gen')){startGame(s);after&&after()
   setTimeout(()=>{if(id!==GENBUSY)return;GENBUSY=0;genDone(s);PREGEN=s;startGame(s);ov.classList.add('hide');after&&after()},60)};
  requestAnimationFrame(()=>setTimeout(step,30))}
 function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){const g=prog();g.l=s;try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
- seed=s;if(PREGEN===s&&LV===s)PREGEN=null;else{PREGEN=null;genWorld(seed)}P=newPlayer();toastQ=[];lavaFloor=0;checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
+ seed=s;if(PREGEN===s&&LV===s)PREGEN=null;else{PREGEN=null;genWorld(seed)}P=newPlayer();toastQ=[];lavaFloor=0;checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;lavaTo=0;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
  if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-72,72,-144],x0=P.x;
   L.forEach((p,i)=>{let x=x0+SL[i%4];const okx=x=>x>=4&&x+PW<=W-4&&!hit(x,P.y,PW,PH)&&hit(x,P.y+PH+1,PW,2)&&!L.some((q,k)=>k<i&&Math.abs((q.id===myId?P.x:(remotes[q.id]||{}).x)-x)<50);if(i&&!okx(x))x=[60,-60,96,-96,130,-130,36,-36].map(d=>x0+d).find(okx)??x;if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
@@ -467,7 +467,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  // food
  if(P.tpG>0)P.tpG-=dt;else for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
  // lava
- if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+(DIFF>.6?250:300);toast('熔岩開始上漲！快爬！')}
+ if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+(DIFF>.6?250:300);lavaTo=1;toast('熔岩開始上漲！快爬！')}if(lavaOn&&!lavaTo&&toastT<=0&&mode==='play'){/* lava already rising when we got here (teleport / join / continue): say so once */lavaTo=1;toast(`熔岩正在上漲！在你下方 ${Math.max(0,(lava-(P.y+PH))/4)|0} m`)}
  if(lavaOn&&(!net||isHost)){/* R21 tension: faster on mid/high levels, and in solo it catches up when far below (never closer than ~45m by catch-up alone) */
   const g=lava-(P.y+PH);lavaV=2.2+DIFF*3+(DIFF>.6?(DIFF-.6)*8:0)+(!net&&!P.down&&g>400?Math.min(5,(g-400)*.02):0);lava-=dt*lavaV}
  if(P.invT>0)P.invT-=dt;
@@ -829,7 +829,7 @@ $('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)loadGame(LV)}
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgPlats(){return NAV.nodes.filter(n=>!n.r.side&&Math.min(n.b,W-PW-6)-Math.max(n.a,6)>=0).sort((a,b)=>b.y-a.y||a.a-b.a)}
-function dbgTeleport(m,fromHost,pi,re){if(!P||mode!=='play'){if(!re)setTimeout(()=>dbgTeleport(m,fromHost,pi,1),300);return}if(!re){const lv0=LV;for(const ms of[250,700])setTimeout(()=>{/* right after a level jump the first teleport could be undone by the level-start reset: re-apply once if we're not where we were sent and haven't moved */if(LV===lv0&&mode==='play'&&P&&DTPY!=null&&Math.abs(P.y-DTPY)>30&&!K.left&&!K.right&&!K.jump){dbgTeleport(m,fromHost,pi,1)}},ms)}if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m,pi});const ty=-m*4-PH,np=net?Math.max(1,lobbyList.length):1,need=(np-1)*56+PW+4;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const a=Math.max(n.a,6),bb=Math.min(n.b,W-PW-6);if(bb<a)continue;const d=Math.abs(n.y-ty)+(bb-a<need?400:0);if(!best||d<best.d)best={n,d}}
+function dbgTeleport(m,fromHost,pi,re){if(!P||mode!=='play'){if(!re)setTimeout(()=>dbgTeleport(m,fromHost,pi,1),300);return}lavaTo=0;if(!re){const lv0=LV;for(const ms of[250,700])setTimeout(()=>{/* right after a level jump the first teleport could be undone by the level-start reset: re-apply once if we're not where we were sent and haven't moved */if(LV===lv0&&mode==='play'&&P&&DTPY!=null&&Math.abs(P.y-DTPY)>30&&!K.left&&!K.right&&!K.jump){dbgTeleport(m,fromHost,pi,1)}},ms)}if(net&&isHost&&!fromHost)for(const id in conns)conns[id].send({t:'tp',m,pi});const ty=-m*4-PH,np=net?Math.max(1,lobbyList.length):1,need=(np-1)*56+PW+4;let best=null;for(const n of NAV.nodes){if(n.r.side)continue;const a=Math.max(n.a,6),bb=Math.min(n.b,W-PW-6);if(bb<a)continue;const d=Math.abs(n.y-ty)+(bb-a<need?400:0);if(!best||d<best.d)best={n,d}}
  if(pi!=null&&pi>=0){const L=dbgPlats();best={n:L[Math.min(L.length-1,pi|0)]}}if(!best||!best.n)return;const n=best.n;dbgPI=dbgPlats().indexOf(n);const ix=net?Math.max(0,lobbyList.findIndex(p=>p.id===myId)):0;// players get evenly spaced slots (>=56px apart) inside the ledge and the visible level; food only nudges the whole group
  let A=Math.max(n.a,6),B=Math.min(n.b,W-PW-6);{/* never spawn hugging the world wall: leave room to walk off that side */const a2=n.a<6?A+30:A,b2=n.b>W-PW-6?B-30:B;if(b2-a2>=0){A=a2;B=b2}}const span=Math.min(B-A,(np-1)*64),slot=k=>np<2?0:k*span/(np-1);let g0=A,bs=-1e9;for(let x=A;x+span<=B+.01;x+=4){let sc=-Math.abs(x+span/2-(A+B)/2)*.5;for(let k=0;k<np;k++){const px=x+slot(k),fd=Math.min(99,...foods.filter(f=>Math.abs(f.y-(n.y+9))<40).map(f=>Math.abs(f.x-(px+6))));sc+=Math.min(fd,40)*3}if(sc>bs){bs=sc;g0=x}}P.x=Math.max(A,Math.min(B,g0+slot(ix%np)));Object.assign(P,{y:n.y,tpG:1.5,vx:0,vy:0,down:false,cling:0,ground:true,invT:3});settle();if(hit(P.x,P.y,PW,PH)){P.x=Math.max(n.a,Math.min(n.b,(n.a+n.b)/2-PW/2));P.y=n.y;settle()}DTPY=P.y;P.tpG=1.5;P.invT=3;P.stam=maxS(P);if(lavaOn&&lava<P.y+PH+300&&(!net||isHost))lava=P.y+PH+300;checkpoint={x:P.x,y:P.y,tp:1};camY=P.y-200;hint=null;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);mileT=0;toast(`DEBUG 傳送 ${Math.max(0,-(P.y+PH)/4)|0} m · 平台 #${dbgPI}`,'tp')}
 function dbgZone(b){if(b>NB-1){toast(`已是最後一區（本關只有 ${NB} 區，山頂 ${Math.max(0,-TOP/4)|0} m）`,'tp');return}dbgTeleport(Math.max(0,b*BL/4+2))}
