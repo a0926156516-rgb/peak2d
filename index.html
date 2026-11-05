@@ -276,7 +276,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
   const routeOK=c=>{for(const[f,e]of RE){if(c.y>f.y+PH+280||c.y+c.h<f.y-120||c.x>e.sx+260||c.x+c.w<e.sx-260)continue;
    const L=rects.filter(r=>r.y<f.y+PH+280&&r.y+r.h>f.y-120);const l=simJump(e.sx,f.y,e.dir,e.rel,L,e.run);if(!l||l.r!==e.to.r)return 0}return 1};
-  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(RR.has(q)||q.camp?10+PH+6:10+PH+4)>q.y&&!(!RR.has(q)&&!q.camp&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
+  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(q.catch?10+PH+4:10+PH+28)>q.y&&!(q.catch&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
   for(let pass=0;pass<3;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
    for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;/* edge against the world wall: nothing to walk off */
     const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;
