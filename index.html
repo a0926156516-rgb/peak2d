@@ -200,7 +200,7 @@ function opKind(l){const raw=n=>{let h=Math.imul(n^0x5bd1e995,0x27d4eb2d);h^=h>>
 function genWorld(lv,sd,tries=0){const g=genWorldG(lv,sd,tries);while(!g.next().done);}
 function genDone(lv){if(!window.BOT&&NAV&&NAV.path)genSave(lv)}
 // first seed retry known to yield a validated route per level (deterministic, measured offline); a stale entry just falls through to the normal retries
-const GEN_TRY={6:2,7:1,8:2,9:3,17:1,26:1,34:1,37:1,38:2,40:1,44:1,47:2,49:4,50:3};
+const GEN_TRY={};
 let GENV=null;const genKey=lv=>{if(!GENV){const t=genWorldG.toString()+ensurePath.toString()+buildNodes.toString()+simJump.toString()+levelCfg.toString();let h=5381;for(let i=0;i<t.length;i++)h=(h*33^t.charCodeAt(i))>>>0;GENV=h.toString(36)}return 'pk2dgen:'+GENV+':'+lv};
 // finished layouts are cached per level and generator version (generation is deterministic, so this only skips the wait on a repeat visit)
 function genSave(lv){try{const k=genKey(lv);for(let i=localStorage.length-1;i>=0;i--){const n=localStorage.key(i);if(n&&n.startsWith('pk2dgen:')&&!n.startsWith('pk2dgen:'+GENV+':'))localStorage.removeItem(n)}
@@ -212,60 +212,37 @@ function* genWorldG(lv,sd,tries=0){if(sd==null&&!tries&&!window.BOT&&!window.NO_
  rects.push({x:-60,y:TOP-800,w:60,h:-TOP+1200,side:1},{x:W,y:TOP-800,w:60,h:-TOP+1200,side:1});
  for(let b=1;b<NB;b++)camps.push({x:180,y:-b*BL,b,k:b});
  let fid=0;const peakR={x:110,y:TOP,w:140,h:14,peak:1};
- // ---- critical path: every ledge is reachable from the previous one with a safety margin
- // rise <= 48px (~70% of the 68px max jump), side gap <= 24px, and no path ledge hangs within 90px above another's take-off area
- const rmin=26+DIFF*14,gmax=10+DIFF*14,wmax=112-DIFF*52,path=[{x:W/2-30,y:0,w:60}];let side=R()<.5?-1:1;
- const clear=(r)=>{for(let k=path.length-2;k>=Math.max(0,path.length-6);k--){const q=path[k];if(Math.abs(q.y-r.y)<89&&r.x<q.x+q.w+16&&r.x+r.w>q.x-16)return false}return true};
- const place=(y,w0,wmin,h,extra)=>{const prev=path[path.length-1];let fb=null;
-  for(let t=0;t<14;t++){const sd2=t<7?side:-side,g=6+R()*gmax;let w=w0;
-   let x=sd2>0?prev.x+prev.w+g:prev.x-g-w;if(x<0){w+=x;x=0}if(x+w>W)w=W-x;
-   if(w<wmin)continue;const r=Object.assign({x,y,w,h},extra);if(!fb)fb=r;if(clear(r)){side=sd2;return r}}
-  for(let G=24;G<=56;G+=4)for(const sd2 of[side,-side])for(let w=w0;w>=wmin;w-=8){// turn: wider gap so the new ledge clears older take-off spots
-   const x=sd2>0?prev.x+prev.w+G:prev.x-G-w;if(x<0||x+w>W)continue;const r=Object.assign({x,y:extra.peak||extra.camp?y:Math.max(y,prev.y-36),w,h},extra);if(clear(r)){side=sd2;return r}}
-  if(fb)return fb;const w=wmin,x=side>0?Math.min(W-w,prev.x+prev.w+6):Math.max(0,prev.x-6-w);return Object.assign({x,y,w,h},extra)};
- const miles=[...camps.map(c=>({y:c.y,c})),{y:TOP,peak:1}];let mi=0,turn=false;
- for(let guard=0;guard<2000&&mi<miles.length;guard++){const prev=path[path.length-1],m=miles[mi];
-  const rise=turn?45:rmin+R()*6,ny=prev.y-rise;
-  if(ny<=m.y+20){turn=false;// milestone (campfire / summit) sits wherever the path arrives near its nominal height
-   if(m.peak){const r=place(ny,140,70,14,{peak:1});Object.assign(peakR,r);TOP=peakR.y;path.push(peakR);mi++;break}
-   const r=place(ny,120,64,16,{camp:1,path:1});rects.push(r);m.c.x=r.x+r.w/2;m.c.y=r.y;path.push(r);mi++;continue}
-  const wmn=60-20*DIFF,r=place(ny,wmn+R()*Math.max(0,wmax-wmn),40,14,{path:1});rects.push(r);path.push(r);
-  // approaching a wall: this rise and the turn's rise are both 45px so the turn ledge clears the old take-off spot
-  const room=side>0?W-r.x-r.w:r.x,need=r.y-rmin-6<=m.y+20?(m.peak?84:78):52;turn=false;if(room<need){r.y=prev.y-45;turn=true}
-  if(R()<.22)foods.push({id:fid++,x:r.x+r.w/2,y:r.y-7,k:fk(R(),.6)});
-  if(R()<.75-DIFF*.4){const w=40+R()*60,x=R()*(W-w);rects.push({x,y:r.y,w,h:14,ex:1});if(R()<.25)foods.push({id:fid++,x:x+w/2,y:r.y-7,k:fk(R(),.5)})}
-  if(R()<.1+DIFF*.25){const h=80+R()*90,px=20+R()*(W-60);rects.push({x:px,y:r.y-h,w:18,h,pil:1})}
- }
- // side ledges / pillars must stay out of the critical-path corridors
- for(let i=rects.length-1;i>=0;i--){const r=rects[i];if(!(r.ex||r.pil))continue;
-  let bad=false;for(let k=0;k+1<path.length&&!bad;k++){const a=path[k],b=path[k+1];
-   if(r.ex){if(Math.abs(a.y-r.y)<100&&r.x<a.x+a.w+34&&r.x+r.w>a.x-34)bad=true}
-   else{const lo=Math.min(a.x,b.x)-24,hi=Math.max(a.x+a.w,b.x+b.w)+24;if(r.x<hi&&r.x+r.w>lo&&r.y<a.y&&r.y+r.h>b.y-PH-70)bad=true}}
-  if(bad){rects.splice(i,1);}}
+ // ---- Round 21 base layout: shingled stair runs. Each ledge's leading end is tucked under the next ledge (rise < PH+14, so nobody fits
+ // there) and its trailing end overhangs the previous ledge, so every walk-off lands on the ledge just below (one rise, <= ~8m). A run ends on a
+ // wall-anchored turn ledge; the next run starts on a ledge above its middle (arrival room on one side, launch room on the other).
+ // Difficulty: taller rises and narrower standing room; hazards / lava / campfires as before.
+ const path=[],OV=PW+6,GAP=PW+5,TURN=150;const rise=()=>Math.min(31,20+DIFF*7+R()*4),fw=()=>52+R()*Math.max(6,70*(1-DIFF));
+ const miles=[...camps.map(c=>({y:c.y,c})),{y:TOP,peak:1}];let mi=0,dir=R()<.5?-1:1,prev=null,y=0,lead=dir>0?W/2+24:W/2-36;
+ const free=r=>{r.fa=dir>0?r.x:r.x+OV;r.fb=dir>0?r.x+r.w-OV:r.x+r.w;if(r.turn){r.fa=r.x;r.fb=r.x+r.w}return r};
+ for(let guard=0;guard<4000&&mi<miles.length;guard++){const m=miles[mi];y-=rise();const atM=y<=m.y+20;
+  let r;if(prev&&prev.turn){/* pivot: a wall-anchored shelf one rise above the turn ledge; the next run starts a small gap (climb-through) past its inner end */
+   const T=prev,m=Math.round(40+R()*Math.max(0,T.w-110));r={x:dir>0?W-m:0,y,w:m,h:14,path:1,pivot:1};dir=-dir}
+  else{const s=prev&&prev.pivot?(dir>0?lead+GAP:lead-GAP):dir>0?lead-OV:lead+OV,room=dir>0?W-s:s;let f=Math.max(atM?(m.peak?126:70):0,fw()),w=f+OV;
+   if(prev&&prev.pivot){/* keep the turn ledge's arrival end clear: the climb up onto it drifts in under this ledge */const T=path[path.length-2],ti=dir>0?T.x+T.w:T.x,e=dir>0?s+w:s-w;
+    if(dir>0?e>ti-44&&e<ti+26:e<ti+44&&e>ti-26)w=dir>0?ti+26-s:s-(ti-26)}
+   if(room-w+OV<TURN){r={x:dir>0?s:0,y,w:room,h:14,path:1,turn:1}}else r={x:dir>0?s:s-w,y,w,h:14,path:1}}
+  free(r);if(r.turn||r.pivot){r.fa=r.x;r.fb=r.x+r.w}
+  if(atM&&!r.turn){if(m.peak){Object.assign(peakR,{x:r.x,y:r.y,w:r.w,h:14,peak:1,fa:r.fa,fb:r.fb});TOP=peakR.y;path.push(peakR);mi++;break}
+   r.camp=1;r.h=16;m.c.x=(r.fa+r.fb)/2;m.c.y=r.y;mi++}
+  rects.push(r);path.push(r);lead=dir>0?r.x+r.w:r.x;prev=r;
+  if(!r.camp&&R()<.16){const fx=r.turn?(dir>0?r.x+12:r.x+r.w-12):r.fa+8+R()*Math.max(1,r.fb-r.fa-28);foods.push({id:fid++,x:fx+6,y:r.y-7,k:fk(R(),.6)})}}
  // rest campfires along the route (every ~30m early, sparser later) + a berry beside each
  {const CPD=120+DIFF*240,big=camps.slice();let ly=0,ci=0;
   for(const r of path){for(const c of big)if(c.y<ly&&c.y>=r.y)ly=c.y;
-   if(!r.path||r.camp||r.peak||!rects.includes(r)||r.w<40||r.y-TOP<CPD*.5||big.some(c=>c.y<r.y&&r.y-c.y<CPD*.5))continue;
-   if(ly-r.y>=CPD){camps.push({x:r.x+Math.min(r.w/2,14),y:r.y,b:-1,k:100+ci++,mini:1});foods.push({id:fid++,x:r.x+r.w-8,y:r.y-7,k:'berry'});ly=r.y}}}
+   if(!r.path||r.camp||r.peak||r.turn||!rects.includes(r)||r.fb-r.fa<40||r.y-TOP<CPD*.5||big.some(c=>c.y<r.y&&r.y-c.y<CPD*.5))continue;
+   if(ly-r.y>=CPD){camps.push({x:r.fa+Math.min((r.fb-r.fa)/2,14),y:r.y,b:-1,k:100+ci++,mini:1});foods.push({id:fid++,x:r.fb-4,y:r.y-7,k:'berry'});ly=r.y}}}
  foods=foods.filter(f=>rects.some(r=>!r.side&&f.x>=r.x&&f.x<=r.x+r.w&&Math.abs(f.y+7-r.y)<1));
  {// never two poison mushrooms in a row (by altitude); early levels keep 3 safe items between them
   const gap=DIFF<.3?3:1;let since=99;for(const f of [...foods].sort((a,b)=>b.y-a.y)){if(f.k==='pois'){if(since<gap)f.k='mush';else since=0}else since++}}
  rects.push(peakR);PEAK=peakR;yield GP=.12;
  yield* ensurePathG();yield GP=.25;
- // early levels: catch ledges beside the first path ledges so a missed jump doesn't drop all the way to the beach; kept only if the validated route stays intact
- if(DIFF<.35&&(NAV&&NAV.path)){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
-  if(rects.some(q=>q!==rects[0]&&q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
-  rects.push({x,y,w,h:10,ex:1,catch:1});navInit();const res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));if(res.ok&&res.path.length<=L0){NAV.path=res.path;added++}else rects.pop()}}navInit();NAV.path=(yield* navSearchG(nodeAt(rects[0],W/2-6))).path}
- yield GP=.3;
- // long-drop catch ledges (all levels): where a path ledge has nothing within ~22m below it, add a small ledge ~9m below beside it; deterministic, kept only if the validated route stays intact
- if((NAV&&NAV.path)){const L0=NAV.path.length;let added=0;const below=(r,x0,x1)=>{let d=1e9;for(const q of rects)if(q!==r&&!q.side&&q.y>r.y+4&&q.x<x1&&q.x+q.w>x0)d=Math.min(d,q.y-r.y);return d};
-  for(let i=2;i<path.length-1&&added<8;i++){const r=path[i];if(r.peak||r.camp||r.y>-PH-120)continue;const sides=r.x+r.w/2<W/2?[1,-1]:[-1,1];for(const sd of sides){const w=30,x=sd<0?r.x-w-PW-6:r.x+r.w+PW+6,y=r.y+36,lo=sd<0?x-10:r.x,hi=sd<0?r.x+r.w:x+w+10;if(below(r,lo,hi)<88)break;if(x<2||x+w>W-2)continue;
-   if(rects.some(q=>q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
-   rects.push({x,y,w,h:10,ex:1,catch:2});added++;break}}
-  if(added){navInit();let res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));if(!(res&&res.ok&&res.path.length<=L0)){/* drop them one at a time from the top until the route is intact */const C=rects.filter(q=>q.catch===2).sort((a,b)=>a.y-b.y);for(const c of C){rects.splice(rects.indexOf(c),1);navInit();res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));if(res&&res.ok&&res.path.length<=L0)break}}navInit();NAV.path=((yield* navSearchG(nodeAt(rects[0],W/2-6)))||{}).path||null}}
- yield GP=.35;
  // opening terrain varies by level (step / wall / stair / plain beach); kept only if the validated route stays intact
- const k=opKind(LV),hv=(Math.imul(LV,2654435761)>>>8)&255;if((NAV&&NAV.path)&&k){const p1=path[1]||{x:W/2,w:0},pr=(p1.x+p1.w/2<W/2)!==!!(hv&64),sh=hv&16?6:0;
+ const k=opKind(LV),hv=(Math.imul(LV,2654435761)>>>8)&255;if((NAV&&NAV.path)&&k&&k!==2){/* R21: no tall opening wall (its top is a long drop) */const p1=path[1]||{x:W/2,w:0},pr=(p1.x+p1.w/2<W/2)!==!!(hv&64),sh=hv&16?6:0;
   // try several spots on both sides of the spawn until one fits without crowding ledges and keeps the route valid
   const cands=[];for(const rt of[pr,!pr])for(const bx of rt?[194,214,236,256,280,300]:[118,98,72,50,30,14])cands.push([rt,bx+sh]);
   let done=0;const pk=LV>1?opKind(LV-1):-1;for(const kk of[k,...[1+k%3,1+(k+1)%3].sort((a,b)=>(a===pk)-(b===pk))]){if(done)break;for(const[rt,bx]of(kk===pk&&kk!==k?cands.slice().reverse():cands)){const k=kk;
@@ -276,81 +253,7 @@ function* genWorldG(lv,sd,tries=0){if(sd==null&&!tries&&!window.BOT&&!window.NO_
    if(op.some(o=>o.x<4||o.x+o.w>W-4||rects.some(q=>q!==rects[0]&&!q.side&&o.x<q.x+q.w+PW&&o.x+o.w>q.x-PW&&o.y-PH-4<q.y+q.h&&o.y+o.h>q.y)))continue;
    const n0=rects.length,keep=NAV.path;for(const o of op)rects.push(Object.assign(o,{ex:1,op:1}));navInit();const res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));
    if(res.ok){NAV.path=res.path;done=1;break}rects.length=n0;navInit();NAV.path=keep}}}
- yield GP=.4;
- // walk-off catch ledges (Round 16): every ledge edge is walked off in simulation (direction held / released at the edge); where the fall
- // would exceed FALLMAX a small ledge is added ~10m below, under the simulated fall line (world edges included); repeated so new ledges are
- // covered too. Each one is checked against the validated route by re-simulating every route jump near it; deterministic; final search guards.
- if(NAV&&NAV.path){const FALLMAX=38,add=[];
-  const simFall=(sx,sy,dir,hold,D,k=.9)=>{const L=rects.filter(r=>!r.side&&r.y>sy+PH-1&&r.y<sy+PH+D+2||r.side&&r.y<sy+PH+D&&r.y+r.h>sy);let x=sx,y=sy,vx=dir*AIRV*k,vy=0,xd=null;
-   for(let i=0;i<240;i++){const ax=hold?dir:0;vx+=(ax*AIRV-vx)*Math.min(1,NAV_DT*(ax?5:6));vy=Math.min(900,vy+1000*NAV_DT);x+=vx*NAV_DT;x=Math.max(0,Math.min(W-PW,x));
-    for(const r of L)if(r.side&&x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y){x=vx>0?r.x-PW:r.x+r.w;vx=0}
-    const y1=y+vy*NAV_DT;for(const r of L)if(!r.side&&x<r.x+r.w&&x+PW>r.x&&y+PH<=r.y+.01&&y1+PH>=r.y)return{d:r.y-(sy+PH),x,xd};y=y1;if(xd===null&&y>=sy+40)xd=x;if(y-sy>D)return{d:1e9,x,xd}}return{d:1e9,x,xd}};
-  let st=nodeAt(rects[0],W/2-6);const RE=[];{let f=st;for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
-  {/* close thin gaps between a ledge and the world wall: a walk-off there is a straight drop along the wall */const ext=[];
-   for(const r of rects){if(r.side||r.peak||r===rects[0]||r.y>-PH-40)continue;
-    if(r.x>0&&r.x<PW+26){const g={x:0,y:r.y,w:r.x};if(!rects.some(q=>q!==r&&g.x-2<q.x+q.w&&g.w+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,r.w+r.x,0])}
-    const gr=W-(r.x+r.w);if(gr>0&&gr<PW+26){if(!rects.some(q=>q!==r&&r.x+r.w-2<q.x+q.w&&W+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,W-r.x,r.x])}}
-   let KP=NAV.path;for(const[r,ox,ow,w,x]of ext){r.x=x;r.w=w;navInit();const rr=(yield* navSearchG(nodeAt(rects[0],W/2-6)));if(rr&&rr.ok&&rr.path.length<=KP.length+2)KP=rr.path;else{r.x=ox;r.w=ow}}navInit();NAV.path=KP}
-  RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
-  const routeOK=c=>{for(const[f,e]of RE){if(c.y>f.y+PH+280||c.y+c.h<f.y-120||c.x>e.sx+260||c.x+c.w<e.sx-260)continue;
-   const L=rects.filter(r=>r.y<f.y+PH+280&&r.y+r.h>f.y-120);const l=simJump(e.sx,f.y,e.dir,e.rel,L,e.run);if(!l||l.r!==e.to.r)return 0}return 1};
-  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W)&&y<-260)return false;const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(q.catch?10+PH+4:10+PH+8)>q.y&&!(q.catch&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
-  for(let pass=0;pass<5;pass++){yield GP=.42+pass*.05;let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
-   for(const r of src)for(const sd of[-1,1]){if(performance.now()-YT>14){yield GP;YT=performance.now()}const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;/* edge against the world wall: nothing to walk off */
-    const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;
-    let ok=0;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(xs.length)for(const D of[34,28,38,24,44,52,58])for(const sh of[0,10,-10,20])for(const sn of[1,0]){if(ok)break;const x0=Math.max(0,Math.min(...xs)-8),x1=Math.min(W,Math.max(...xs)+PW+8),w=Math.max(40,x1-x0)+Math.abs(sh)*0,x2=Math.max(0,Math.min(W-w,(sd>0?x0:x1-w)+sd*sh)),xa=sn&&x2<PW+10?0:x2,wb=(sn&&x2+w>W-PW-10?W:x2+w)-xa,x=xa,y=r.y+D;
-     if(y>-100||!free(x,y,wb))continue;const q={x,y,w:wb,h:10,ex:1,catch:3};rects.push(q);if(routeOK(q)){add.push(q);n++;ok=1}else rects.pop()}}
-   if(!n)break}
-  {/* Round 17: where no new ledge fits, widen the ledge just below (8-12m down) so it reaches under the fall line; route-checked */
-   for(let pass=0;pass<2;pass++){const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
-   for(const r of src)for(const sd of[-1,1]){if(performance.now()-YT>14){yield GP;YT=performance.now()}const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;
-    const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(!xs.length)continue;
-    if((sd<0?e:W-e)<PW+26&&!r.camp){/* chute between this ledge and the world wall: close it */const ox=r.x,ow=r.w,nx=sd<0?0:r.x,nr=sd<0?r.x+r.w:W;
-     if(!rects.some(t=>t!==r&&t!==rects[0]&&!(t.side&&(t.x+t.w<=0||t.x>=W))&&nx-2<t.x+t.w&&nr+2>t.x&&r.y-PH-5<t.y+t.h&&r.y+r.h+PH+4>t.y&&!(t.x+t.w<=ox+1&&sd>0)&&!(t.x>=ox+ow-1&&sd<0))){r.x=nx;r.w=nr-nx;if(routeOK(r)){add.push(r);r.wid=[ox,ow];continue}r.x=ox;r.w=ow}}
-    const fx0=Math.max(0,Math.min(...xs)-6),fx1=Math.min(W,Math.max(...xs)+PW+6);
-    const cs=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q!==r&&!q.op&&q.h<=14&&q.y<-100&&q.y-r.y>=14&&q.y-r.y<=56).sort((a,b)=>(a.y-r.y)-(b.y-r.y));let done=0;
-    for(const q of cs){if(done)break;let nx=Math.min(q.x,fx0),nr=Math.max(q.x+q.w,fx1);if(nx<PW+26)nx=0;if(W-nr<PW+26)nr=W;if(nr-nx>q.w+150)continue;const ox=q.x,ow=q.w;
-     const clash=rects.some(t=>t!==q&&t!==rects[0]&&(t.side?nx<t.x+t.w&&nr>t.x&&q.y<t.y+t.h&&q.y+q.h>t.y:(nx-PW-2<t.x+t.w&&nr+PW+2>t.x&&((t.y<q.y&&t.y+t.h>q.y-PH-6)||(t.y>=q.y&&t.y<q.y+q.h+PH+6)))&&!(t.x>=ox-1&&t.x+t.w<=ox+ow+1&&t.y===q.y)));
-     if(clash||rects.some(t=>t!==q&&!t.side&&t!==rects[0]&&Math.abs(t.y-q.y)<64&&t.y!==q.y&&nx-4<t.x+t.w&&nr+4>t.x&&!(ox-4<t.x+t.w&&ox+ow+4>t.x)))continue;/* don't slide under/over a nearby ledge (keeps the jump arcs) */q.x=nx;q.w=nr-nx;if(routeOK(q)){done=1;add.push(q);q.wid=[ox,ow]}else{q.x=ox;q.w=ow}}}}}
-  yield GP=.66;if(add.length){navInit();let res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));
-   for(let it=0;it<8&&!(res&&res.ok);it++){/* bisect for the first ledge that breaks the route, drop just that one, repeat */const live=add.filter(c=>rects.includes(c)&&!c.wid);const keep=rects.filter(q=>!live.includes(q));let lo=0,hi=live.length-1;
-    const tryN=function*(m){rects.length=0;rects.push(...keep,...live.slice(0,m));navInit();const r=(yield* navSearchG(nodeAt(rects[0],W/2-6)));return r&&r.ok};
-    while(lo<hi){const m=(lo+hi)>>1;if(yield* tryN(m+1))lo=m+1;else hi=m}rects.length=0;rects.push(...keep,...live.filter((c,i)=>i!==lo));navInit();res=(yield* navSearchG(nodeAt(rects[0],W/2-6)))}
-   if(!(res&&res.ok)){for(const q of add)if(q.wid){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!add.includes(q)||q.wid))}
-   navInit();NAV.path=((yield* navSearchG(nodeAt(rects[0],W/2-6)))||{}).path||null}
-  RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path||[]){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
-  {const A2=[];
-  {/* Round 19: half-step fill. Any edge whose walk-off still drops >8.5m gets a small step 5-9m below under the fall line (both directions checked); denser steps between rows, deterministic, route-checked */
-   const FM=34,clear=(x,y,w)=>x>=0&&x+w<=W&&!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W))return false;const g=Math.abs(q.y-y)<20?PW+2:2;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-3<q.y+q.h&&y+10+PH+3>q.y});
-   for(let pass=0;pass<4;pass++){yield GP=.72+pass*.04;let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
-    for(const r of src)for(const sd of[-1,1]){if(performance.now()-YT>14){yield GP;YT=performance.now()}const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;
-     const f0=[simFall(sx,sy,sd,1,FM),simFall(sx,sy,sd,0,FM),simFall(sx,sy,sd,0,FM,.5),simFall(sx,sy,sd,1,FM,.5),simFall(sx,sy,sd,0,FM,.2)];if(f0.every(f=>f.d<=FM))continue;let ok=0;{/* narrow slot next to a ledge at about the same height: bridge it instead */const nb=rects.find(q=>q!==r&&!q.side&&!q.peak&&Math.abs(q.y-r.y)<=8&&q.h<=14&&(sd>0?q.x-e:e-(q.x+q.w))>0&&(sd>0?q.x-e:e-(q.x+q.w))<PW+18);
-      if(nb&&!r.camp){const ox=r.x,ow=r.w;if(sd>0)r.w=nb.x-r.x;else{r.w=r.x+r.w-(nb.x+nb.w);r.x=nb.x+nb.w}if(routeOK(r)){A2.push(r);r.wid=r.wid||Object.assign([ox,ow],{r19:1});n++;continue}r.x=ox;r.w=ow}
-      const nl=rects.find(q=>q!==r&&q!==rects[0]&&!q.side&&!q.peak&&!q.camp&&q.h<=14&&q.y-r.y>8&&q.y-r.y<=44&&(sd>0?q.x-e:e-(q.x+q.w))>0&&(sd>0?q.x-e:e-(q.x+q.w))<PW+26);
-      if(nl){const ox=nl.x,ow=nl.w;if(sd>0){nl.w=nl.x+nl.w-e;nl.x=e}else nl.w=e-nl.x;if(!rects.some(t=>t!==nl&&t!==r&&!t.side&&t.x<nl.x+nl.w&&t.x+t.w>nl.x&&t.y<nl.y+nl.h+PH+2&&t.y+t.h>nl.y-PH-2)&&routeOK(nl)){A2.push(nl);nl.wid=nl.wid||Object.assign([ox,ow],{r19:1});n++;continue}nl.x=ox;nl.w=ow}}
-     for(const D of[32,28,24,36,20,40])for(const w of[36,48,28,60])for(const off of[0,-8,8,-16,16,-26,26,-34,34]){if(ok)break;const y=r.y+D;if(y>-100)continue;
-      const c=sd>0?e+off:e-w+off;let x=Math.round(Math.max(0,Math.min(W-w,c)));let ww=w;if(x<PW+6){ww+=x;x=0}if(W-(x+ww)<PW+6)ww=W-x;if(!clear(x,y,ww))continue;
-      const q={x,y,w:ww,h:10,ex:1,catch:4};rects.push(q);const f1=[simFall(sx,sy,sd,1,FM),simFall(sx,sy,sd,0,FM),simFall(sx,sy,sd,0,FM,.5),simFall(sx,sy,sd,1,FM,.5),simFall(sx,sy,sd,0,FM,.2)];
-      if(f1.every(f=>f.d<=FM)&&routeOK(q)){A2.push(q);n++;ok=1}else rects.pop()}}
-    if(!n)break}}
-   if(A2.length){navInit();let res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));
-    for(let it=0;it<40&&!(res&&res.ok);it++){/* drop the new steps around where the route search got stuck (one search per round) */const live=A2.filter(c=>rects.includes(c));if(!live.length||!res||!res.best)break;const by=res.best.r.y;
-     let near=live.filter(c=>Math.abs(c.y-by)<150);if(!near.length)near=[live.reduce((a,c)=>Math.abs(c.y-by)<Math.abs(a.y-by)?c:a)];
-     for(const c of near){if(c.wid&&c.wid.r19){c.x=c.wid[0];c.w=c.wid[1];A2.splice(A2.indexOf(c),1)}else rects.splice(rects.indexOf(c),1)}navInit();res=(yield* navSearchG(nodeAt(rects[0],W/2-6)))}
-    if(!(res&&res.ok)){for(const q of A2)if(q.wid&&q.wid.r19){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!A2.includes(q)||q.wid));navInit();res=(yield* navSearchG(nodeAt(rects[0],W/2-6)))}
-    if(res&&res.ok)NAV.path=res.path}}
-  }
  yield GP=.9;
- if(NAV&&NAV.path){/* Round 19 fix: no ledge may end right beside another at body height (a lip you can neither walk off nor step onto); trim or drop the extra ledge */
-  const snap=rects.map(q=>[q,q.x,q.w]),rm=[];let ch=0;
-  for(let it=0;it<3;it++)for(const a of rects)for(const b of rects){if(a===b||a.side||b.side||a===rects[0]||b===rects[0]||rm.includes(a)||rm.includes(b))continue;const dy=a.y-b.y;if(Math.abs(dy)<.6||Math.abs(dy)>PH+12)continue;
-   const gR=b.x-(a.x+a.w),gL=a.x-(b.x+b.w);let side=0;if(gR>-PW&&gR<PW+3)side=1;else if(gL>-PW&&gL<PW+3)side=-1;if(!side)continue;
-   if(b.x<a.x+a.w-PW&&b.x+b.w>a.x+PW)continue;/* real overlap: a roof, handled elsewhere */
-   const v=(b.catch||b.ex)&&!b.path&&!b.camp&&!b.peak?b:(a.catch||a.ex)&&!a.path&&!a.camp&&!a.peak?a:null;if(!v)continue;const o=v===b?a:b,need=PW+4;
-   let nx0=v.x,nw=v.w;if(v.x>=o.x){const nx=o.x+o.w+need;nw=v.x+v.w-nx;nx0=nx}else{nw=o.x-need-v.x}
-   if(nw<24)continue;/* Round 19b: never delete a catch ledge outright (it may be the only thing under a walk-off) */
-   v.x=nx0;v.w=nw;if(v.w<24){rm.push(v)}ch=1}
-  if(ch){for(const v of rm)rects.splice(rects.indexOf(v),1);navInit();const res=(yield* navSearchG(nodeAt(rects[0],W/2-6)));if(res&&res.ok)NAV.path=res.path;else{rects.length=0;for(const[q,x,w]of snap){q.x=x;q.w=w;rects.push(q)}navInit();NAV.path=((yield* navSearchG(nodeAt(rects[0],W/2-6)))||{}).path||null}}}
  if(!(NAV&&NAV.path)&&tries<6)yield* genWorldG(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
