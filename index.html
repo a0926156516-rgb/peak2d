@@ -374,11 +374,11 @@ const K={},prev={};
 const km={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',ShiftLeft:'grab',ShiftRight:'grab',KeyK:'grab'};
 let JB=0;// jump buffer (s)
 addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=km[e.code];if(k){if(k==='jump'&&!e.repeat)JB=.15;K[k]=1;e.preventDefault()}});
-addEventListener('keyup',e=>{const k=km[e.code];if(k)K[k]=0});
+addEventListener('keyup',e=>{const k=km[e.code];if(k){K[k]=0;if(k==='jump')JREL=1}});
 document.querySelectorAll('.b').forEach(b=>{const k=b.dataset.k;
  const on=e=>{e.preventDefault();if(k==='jump')JB=.15;K[k]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
- const off=e=>{K[k]=0;b.classList.remove('on')};
- b.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(t=>b.addEventListener(t,off))});
+ const off=e=>{K[k]=0;if(k==='jump')JREL=1;b.classList.remove('on')};
+ b.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture','touchend','touchcancel'].forEach(t=>b.addEventListener(t,off))});
 const pressed=k=>K[k]&&!prev[k];
 
 // ---------- game flow ----------
@@ -465,18 +465,18 @@ function update(dt){try{auSteps(dt)}catch(_){}
   const up=K.up?1:0,dn=K.down?1:0,slip=b===1?1.4+DIFF*.5:1;
   P.vx=0;P.vy=-up*85+dn*110+(b===1&&!up&&!dn?18*DIFF:0);
   P.stam-=((1.2+5.8*DIFF)+up*(2.3+10.7*DIFF))*slip*dt*(b===2?1.1+DIFF*.2:1);
-  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
+  if(JB>0&&P.stam>4){JB=0;P.jh=1;P.jt=0;P.jy0=P.y;P.jf=61;P.vy=-350;P.vx=-P.cling*200;P.stam-=6+6*DIFF;P.cling=0;puff(P.x+6,P.y+9,'#ddd',5)}
   if(P.stam<=0){P.stam=0;P.cling=0;toast('體力耗盡！')}
  }else{
   P.vx+=(ax*(P.ground?140:AIRV)-P.vx)*Math.min(1,dt*(P.ground?14:ax?5:6));
-  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,r0:fr,x1:null,mx:0}}puff(P.x+6,P.y+PH,'#eee',5)}
+  if(JB>0&&(P.ground||P.coy>0)&&P.vy>=-1){JB=0;P.coy=0;P.vy=-JV;P.vx=Math.max(-JCAP,Math.min(JCAP,P.vx));/* cap run-jump carry */P.jh=1;P.jt=0;P.jy0=P.y;P.jf=JV*JV/2000;P.ground=false;if(DEBUG){const fr=hit(P.x,P.y+PH+1,PW,2);JLOG={x0:P.x,y0:P.y,pk:0,r0:fr,x1:null,mx:0}}puff(P.x+6,P.y+PH,'#eee',5)}
   P.vy=Math.min(900,P.vy+1000*dt);
  }
  if(P.ground&&!P.cling)P.stam+=55*dt;
  P.stam=Math.max(0,Math.min(P.stam,MS));if(DBG_INF){P.stam=MS;P.hun=0;P.cold=0}
  P.x+=P.vx*dt;let rx=hit(P.x,P.y,PW,PH);if(rx&&!window.BOT&&!P.cling&&!K.grab){const dn=rx.y+rx.h-P.y;if(dn>0&&dn<=5&&!hit(P.x,rx.y+rx.h+.01,PW,PH)){P.y=rx.y+rx.h+.01;rx=null}}/* head snag: slide under a ledge corner */if(rx){P.x=P.vx>0?rx.x-PW:rx.x+rx.w;P.vx=0}
- if(P.jh&&!K.jump){if(P.vy<-170)P.vy=-170;P.jh=0}if(P.vy>=0)P.jh=0;// variable jump height: release early = lower hop
- const vy=P.vy;moveY(dt);if(JLOG&&JLOG.x1==null)JLOG.mx=Math.max(JLOG.mx,Math.abs(P.x-JLOG.x0));
+ if(P.jh){P.jt=(P.jt||0)+dt;if(!K.jump||JREL){/* game-time hold -> target apex: tap (<=0.1s) = 50% of full, rising to 100% by 0.35s */const F=P.jf||72.8,H=F*(P.jt<=.1?.5:.5+.5*Math.min(1,(P.jt-.1)/.25)),rem=H-((P.jy0??P.y)-P.y),v=-Math.sqrt(2000*Math.max(0,rem));if(P.vy<v)P.vy=v;P.jh=0}}JREL=0;if(P.vy>=0)P.jh=0;/* release (even between frames, via JREL) caps rise to JCUT -> tap ≈ half height */// variable jump height: release early = lower hop
+ const vy=P.vy;moveY(dt);if(JLOG&&JLOG.x1==null){JLOG.mx=Math.max(JLOG.mx,Math.abs(P.x-JLOG.x0));JLOG.pk=Math.max(JLOG.pk,JLOG.y0-P.y)}
  P.teet=0;if(!window.BOT&&P.ground&&!P.cling){/* no standing on a sliver: if the body's centre is past every supporting edge, slide off (unless walking back in) */const fy=P.y+PH,s=rects.filter(q=>!q.side&&Math.abs(q.y-fy)<.6&&P.x<q.x+q.w&&P.x+PW>q.x);if(s.length){const lo=Math.min(...s.map(q=>q.x)),hi=Math.max(...s.map(q=>q.x+q.w)),c=P.x+6;if(c<lo||c>hi){const d=c<lo?-1:1;const nx=P.x+d*Math.max(1.5,60*dt);if(ax!==-d&&!hit(nx,P.y,PW,PH))P.x=nx;else{/* wedged against a wall: settle back onto the rock instead of hovering */const bx=d>0?hi-7:lo-5;if(!hit(bx,P.y,PW,PH))P.x=bx}}else P.teet=(c<lo+8||c>hi-8)&&Math.abs(P.vx)<20&&!ax?(c<lo+8?-1:1):0;if(P.teet&&Math.random()<dt*7)parts.push({x:P.teet<0?lo+1:hi-1,y:fy+1,vx:(Math.random()-.5)*12,vy:20+Math.random()*25,l:.7,c:'#b8a88c',s:1.5,ng:0})}}
  if(P.ground&&vy>640){P.inj=Math.min(95,P.inj+(vy-640)*.09);shake=.25;puff(P.x+6,P.y+PH,'#c33',10);toast('摔傷了！');if(P.inj>=85)down()}
  // food
@@ -505,7 +505,7 @@ function eat(id,mine){if(eaten.has(id))return;eaten.add(id);const f=foods.find(f
 // ---------- hint ----------
 /* fixed UI lanes: hint row at HY (26px), toast lane directly below it at TOPY; never overlap */
 let HY=124,TOPY=158,HTW=300,DBR=0,DBX=null,HRX=null;function layoutLanes(){let h=124;if(net&&roomB)h=Math.max(h,roomB+8);const d=$('dbg');if(d){const r=d.getBoundingClientRect();if(r.height&&r.width>70&&r.right>CW/2-HTW/2-6)h=Math.max(h,Math.ceil(r.bottom)+6);DBR=r.width&&r.top<h+26&&r.bottom>h?r.right:0;const bb=$('dCol'),q=bb&&bb.getBoundingClientRect();DBX=q&&q.width?{l:q.left,t:q.top,r:q.right,b:q.bottom}:null}else{DBR=0;DBX=null}HY=h;const t=h+26+8;if(t!==TOPY||!layoutLanes.f){TOPY=t;layoutLanes.f=1;const te=$('toast');if(te)te.style.top=t+'px'}}
-let dbgPI=-1,JLOG=null,hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
+let dbgPI=-1,JLOG=null,JREL=0,hTip='',hFA=0,hint=null,bestY=0,progT=0,mile=-1,roomB=0,mileY=0,mileTxt='',mileT=0;
 function makeHint(quiet){
  const n=standNode(),path=routeFrom(n);
  if(!path||!path.length){if(quiet)hint=null;else toast('先站穩在平台上，再按「？」');return}
@@ -852,7 +852,7 @@ if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cs
  const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
  cv.tabIndex=-1;const unf=()=>{const a=document.activeElement;if(a&&a!==document.body&&a.blur)a.blur();try{cv.focus({preventScroll:true})}catch(_){}};/* give keys back to the game */
  $('dGo').onclick=()=>{go(+$('dLv').value);unf()};$('dTp').onclick=()=>{dbgTeleport(+$('dM').value);unf()};d.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'&&e.key==='Enter'){e.preventDefault();const b={dLv:'dGo',dM:'dTp',dP:'dPg'}[e.target.id];if(b)$(b).onclick();unf()}});$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
- $('dPg').onclick=()=>{dbgTeleport(0,0,+$('dP').value|0);unf()};setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;const pl=P&&NAV?dbgPlats():[],pn=r=>{const i=r?pl.findIndex(n=>n.r===r):-1;return i<0?'-':i};j.textContent=(JLOG?`起跳平台 #${pn(JLOG.r0)}　最遠水平距離 ${Math.round(JLOG.mx)}px\n跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台 #'+pn(JLOG.r1):'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
+ $('dPg').onclick=()=>{dbgTeleport(0,0,+$('dP').value|0);unf()};setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;const pl=P&&NAV?dbgPlats():[],pn=r=>{const i=r?pl.findIndex(n=>n.r===r):-1;return i<0?'-':i};j.textContent=(JLOG?`起跳平台 #${pn(JLOG.r0)}　最遠水平距離 ${Math.round(JLOG.mx)}px　峰值高度 ${Math.round(JLOG.pk)}px (${(JLOG.pk/4).toFixed(1)}m)\n跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台 #'+pn(JLOG.r1):'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?'calc(118px + env(safe-area-inset-top))':'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
  const hp=()=>{const h=$('dHelp');if(h)h.textContent=`鍵：[ ] 換關 · t/T ±25m · 1–${NB} 傳送到第1–${NB}區起點（不是山頂）· p/P 平台#±1 · i ∞體力 · 存檔與一般模式分開`};hp();setInterval(hp,1000);
  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key;
   if(k==='['||k===']'){go(LV+(k===']'?1:-1))}else if(k==='t'||k==='T')dbgTeleport(Math.max(0,-(P.y+PH)/4)+(k==='T'?-25:25));
