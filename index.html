@@ -261,7 +261,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  // walk-off catch ledges (Round 16): every ledge edge is walked off in simulation (direction held / released at the edge); where the fall
  // would exceed FALLMAX a small ledge is added ~10m below, under the simulated fall line (world edges included); repeated so new ledges are
  // covered too. Each one is checked against the validated route by re-simulating every route jump near it; deterministic; final search guards.
- if(NAV&&NAV.path){const FALLMAX=60,add=[];
+ if(NAV&&NAV.path){const FALLMAX=38,add=[];
   const simFall=(sx,sy,dir,hold,D)=>{const L=rects.filter(r=>!r.side&&r.y>sy+PH-1&&r.y<sy+PH+D+2||r.side&&r.y<sy+PH+D&&r.y+r.h>sy);let x=sx,y=sy,vx=dir*AIRV*.9,vy=0,xd=null;
    for(let i=0;i<240;i++){const ax=hold?dir:0;vx+=(ax*AIRV-vx)*Math.min(1,NAV_DT*(ax?5:6));vy=Math.min(900,vy+1000*NAV_DT);x+=vx*NAV_DT;x=Math.max(0,Math.min(W-PW,x));
     for(const r of L)if(r.side&&x<r.x+r.w&&x+PW>r.x&&y<r.y+r.h&&y+PH>r.y){x=vx>0?r.x-PW:r.x+r.w;vx=0}
@@ -269,25 +269,35 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   let st=nodeAt(rects[0],W/2-6);const RE=[];{let f=st;for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
   {/* close thin gaps between a ledge and the world wall: a walk-off there is a straight drop along the wall */const ext=[];
    for(const r of rects){if(r.side||r.peak||r===rects[0]||r.y>-PH-40)continue;
-    if(r.x>0&&r.x<PW+10){const g={x:0,y:r.y,w:r.x};if(!rects.some(q=>q!==r&&g.x-2<q.x+q.w&&g.w+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,r.w+r.x,0])}
-    const gr=W-(r.x+r.w);if(gr>0&&gr<PW+10){if(!rects.some(q=>q!==r&&r.x+r.w-2<q.x+q.w&&W+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,W-r.x,r.x])}}
-   for(const[r,,,w,x]of ext){r.x=x;r.w=w}
-   if(ext.length){navInit();const rr=navSearch(nodeAt(rects[0],W/2-6));if(rr&&rr.ok)NAV.path=rr.path;else{for(const[r,x,w]of ext){r.x=x;r.w=w}navInit()}}}
+    if(r.x>0&&r.x<PW+26){const g={x:0,y:r.y,w:r.x};if(!rects.some(q=>q!==r&&g.x-2<q.x+q.w&&g.w+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,r.w+r.x,0])}
+    const gr=W-(r.x+r.w);if(gr>0&&gr<PW+26){if(!rects.some(q=>q!==r&&r.x+r.w-2<q.x+q.w&&W+2>q.x&&r.y-PH-5<q.y+q.h&&r.y+r.h+PH+4>q.y))ext.push([r,r.x,r.w,W-r.x,r.x])}}
+   let KP=NAV.path;for(const[r,ox,ow,w,x]of ext){r.x=x;r.w=w;navInit();const rr=navSearch(nodeAt(rects[0],W/2-6));if(rr&&rr.ok&&rr.path.length<=KP.length+2)KP=rr.path;else{r.x=ox;r.w=ow}}navInit();NAV.path=KP}
   RE.length=0;{let f=nodeAt(rects[0],W/2-6);for(const e of NAV.path){if(!e||!e.to)break;RE.push([f,e]);f=e.to}}
   const routeOK=c=>{for(const[f,e]of RE){if(c.y>f.y+PH+280||c.y+c.h<f.y-120||c.x>e.sx+260||c.x+c.w<e.sx-260)continue;
    const L=rects.filter(r=>r.y<f.y+PH+280&&r.y+r.h>f.y-120);const l=simJump(e.sx,f.y,e.dir,e.rel,L,e.run);if(!l||l.r!==e.to.r)return 0}return 1};
-  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(q.catch?10+PH+4:10+PH+28)>q.y&&!(q.catch&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
-  for(let pass=0;pass<3;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+  const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W))return false;const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(q.catch?10+PH+4:10+PH+28)>q.y&&!(q.catch&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
+  for(let pass=0;pass<5;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
    for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;/* edge against the world wall: nothing to walk off */
     const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;
-    let ok=0;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(xs.length)for(const D of[40,46,34,52,58,28])for(const sh of[0,10,-10,20])for(const sn of[1,0]){if(ok)break;const x0=Math.max(0,Math.min(...xs)-8),x1=Math.min(W,Math.max(...xs)+PW+8),w=Math.max(40,x1-x0)+Math.abs(sh)*0,x2=Math.max(0,Math.min(W-w,(sd>0?x0:x1-w)+sd*sh)),xa=sn&&x2<PW+10?0:x2,wb=(sn&&x2+w>W-PW-10?W:x2+w)-xa,x=xa,y=r.y+D;
+    let ok=0;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(xs.length)for(const D of[34,28,38,24,44,52,58])for(const sh of[0,10,-10,20])for(const sn of[1,0]){if(ok)break;const x0=Math.max(0,Math.min(...xs)-8),x1=Math.min(W,Math.max(...xs)+PW+8),w=Math.max(40,x1-x0)+Math.abs(sh)*0,x2=Math.max(0,Math.min(W-w,(sd>0?x0:x1-w)+sd*sh)),xa=sn&&x2<PW+10?0:x2,wb=(sn&&x2+w>W-PW-10?W:x2+w)-xa,x=xa,y=r.y+D;
      if(y>-PH-24||!free(x,y,wb))continue;const q={x,y,w:wb,h:10,ex:1,catch:3};rects.push(q);if(routeOK(q)){add.push(q);n++;ok=1}else rects.pop()}}
    if(!n)break}
+  {/* Round 17: where no new ledge fits, widen the ledge just below (8-12m down) so it reaches under the fall line; route-checked */
+   for(let pass=0;pass<2;pass++){const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+   for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;
+    const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(!xs.length)continue;
+    if((sd<0?e:W-e)<PW+26&&!r.camp){/* chute between this ledge and the world wall: close it */const ox=r.x,ow=r.w,nx=sd<0?0:r.x,nr=sd<0?r.x+r.w:W;
+     if(!rects.some(t=>t!==r&&t!==rects[0]&&!(t.side&&(t.x+t.w<=0||t.x>=W))&&nx-2<t.x+t.w&&nr+2>t.x&&r.y-PH-5<t.y+t.h&&r.y+r.h+PH+4>t.y&&!(t.x+t.w<=ox+1&&sd>0)&&!(t.x>=ox+ow-1&&sd<0))){r.x=nx;r.w=nr-nx;if(routeOK(r)){add.push(r);r.wid=[ox,ow];continue}r.x=ox;r.w=ow}}
+    const fx0=Math.max(0,Math.min(...xs)-6),fx1=Math.min(W,Math.max(...xs)+PW+6);
+    const cs=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q!==r&&!q.op&&q.h<=14&&q.y-r.y>=14&&q.y-r.y<=56).sort((a,b)=>(a.y-r.y)-(b.y-r.y));let done=0;
+    for(const q of cs){if(done)break;let nx=Math.min(q.x,fx0),nr=Math.max(q.x+q.w,fx1);if(nx<PW+26)nx=0;if(W-nr<PW+26)nr=W;if(nr-nx>q.w+150)continue;const ox=q.x,ow=q.w;
+     const clash=rects.some(t=>t!==q&&t!==rects[0]&&(t.side?nx<t.x+t.w&&nr>t.x&&q.y<t.y+t.h&&q.y+q.h>t.y:(nx-PW-2<t.x+t.w&&nr+PW+2>t.x&&((t.y<q.y&&t.y+t.h>q.y-PH-6)||(t.y>=q.y&&t.y<q.y+q.h+PH+6)))&&!(t.x>=ox-1&&t.x+t.w<=ox+ow+1&&t.y===q.y)));
+     if(clash)continue;q.x=nx;q.w=nr-nx;if(routeOK(q)){done=1;add.push(q);q.wid=[ox,ow]}else{q.x=ox;q.w=ow}}}}}
   if(add.length){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));
-   for(let it=0;it<8&&!(res&&res.ok);it++){/* bisect for the first ledge that breaks the route, drop just that one, repeat */const live=add.filter(c=>rects.includes(c));const keep=rects.filter(q=>!live.includes(q));let lo=0,hi=live.length-1;
+   for(let it=0;it<8&&!(res&&res.ok);it++){/* bisect for the first ledge that breaks the route, drop just that one, repeat */const live=add.filter(c=>rects.includes(c)&&!c.wid);const keep=rects.filter(q=>!live.includes(q));let lo=0,hi=live.length-1;
     const tryN=m=>{rects.length=0;rects.push(...keep,...live.slice(0,m));navInit();const r=navSearch(nodeAt(rects[0],W/2-6));return r&&r.ok};
     while(lo<hi){const m=(lo+hi)>>1;if(tryN(m+1))lo=m+1;else hi=m}rects.length=0;rects.push(...keep,...live.filter((c,i)=>i!==lo));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
-   if(!(res&&res.ok)){rects.splice(0,rects.length,...rects.filter(q=>!add.includes(q)))}
+   if(!(res&&res.ok)){for(const q of add)if(q.wid){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!add.includes(q)||q.wid))}
    navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}
  if(!(NAV&&NAV.path)&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
