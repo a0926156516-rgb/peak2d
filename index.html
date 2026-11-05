@@ -368,7 +368,7 @@ function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!
 function lvChapter(i){const C=[[1,12,0],[13,25,1],[26,38,2],[39,50,3]];const c=C.find(c=>i<=c[1]);return{a:c[0],b:c[1],z:c[2]}}
 function stars(i,t){const par=45+2.2*i;return t<=par*1.4?3:t<=par*2.2?2:1}
 function contLv(){const l=prog().l;return l>=1&&l<=nextLv()?l:nextLv()}
-function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（營火 ${Math.max(0,-(C0.y+PH)/4)|0} m）`;$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
+function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=(genKey(n),C0.v===GENV)&&C0.hm!=null?`（營火 ${C0.hm} m）`:'（營火）';$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
  $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const ch=lvChapter(i);if(i===ch.a){const h=document.createElement('div');h.className='zh';h.style.background=`linear-gradient(90deg,${BIOMES[ch.z].rock},${BIOMES[ch.z].edge}aa)`;h.textContent=`${['🏖️','🌴','🏔️','🌋'][ch.z]} ${BIOMES[ch.z].n}篇 · 第${ch.a}–${ch.b}關`;$('lvgrid').appendChild(h)}
   const e=document.createElement('button');const ok=i<=nextLv();e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
   if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
@@ -403,10 +403,10 @@ function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){con
 function loadCP(lv){const c=cpMeta(lv);if(!c||!Number.isFinite(c.y))return null;
  // the saved campfire must exist in this layout; a save from an older layout (or a moved campfire) maps to the nearest campfire at or below its height
  const ok=q=>Number.isFinite(q.x)&&!hit(q.x,q.y,PW,PH)&&hit(q.x,q.y+PH+2,PW,2);const at=k=>({x:k.x-6,y:k.y-PH-1});
- const same=camps.find(k=>k.k===c.camp&&Math.abs(k.x-6-c.x)<2&&Math.abs(k.y-PH-1-c.y)<2);genKey(lv);if(same&&ok(c))return Object.assign({},c,{v:GENV});
+ const same=camps.find(k=>k.k===c.camp&&Math.abs(k.x-6-c.x)<2&&Math.abs(k.y-PH-1-c.y)<2);genKey(lv);if(same&&ok(c))return Object.assign({},c,{v:GENV,hm:Math.max(0,-(c.y+PH)/4)|0});
  const L=camps.filter(k=>k.y-PH-1>=c.y-8&&ok(at(k))).sort((a,b)=>a.y-b.y);const k=L[0];if(!k)return null;
- const m=Object.assign({},c,at(k),{camp:k.k,v:GENV});if(c.v!==GENV)m.e=[];return m}
-function saveCP(){if(net||window.BOT)return;const o=cps();genKey(LV);o[LV]={lv:LV,v:GENV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
+ const m=Object.assign({},c,at(k),{camp:k.k,v:GENV});if(c.v!==GENV)m.e=[];m.hm=Math.max(0,-(m.y+PH)/4)|0;try{const o=cps();o[lv]=m;setCps(o)}catch(_){}return m}
+function saveCP(){if(net||window.BOT)return;const o=cps();genKey(LV);o[LV]={lv:LV,v:GENV,x:checkpoint.x,y:checkpoint.y,hm:Math.max(0,-(checkpoint.y+PH)/4)|0,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
 function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toastT=0;toast('倒下了…即將在營火重生')}
 // respawn: never into (or just above) lava. Solo/host lower the lava under the campfire; guests ask the host (host-authoritative, synced via 'ps').
