@@ -28,6 +28,12 @@ h2{font-weight:900;letter-spacing:2px}
 #rlvw.lvpick{display:flex;align-items:center;gap:8px}.lvpick button{min-width:0;width:52px;height:52px;padding:0;font-size:20px;border-radius:50%}
 #rlvB{background:rgba(10,20,35,.6);border:3px solid #ffd27a;border-radius:16px;padding:4px 18px;display:flex;flex-direction:column;align-items:center;min-width:120px}#rlvB small{font-size:12px;opacity:.8}#rlvB b{font-size:22px;font-weight:900}
 #rlvw.lvpick.hide{display:none}
+#gen{z-index:20;background:rgba(10,20,35,.9);gap:14px}#gen .gw{position:relative;width:120px;height:70px}
+#gen .gm{position:absolute;left:10px;bottom:0;width:100px;height:56px;background:linear-gradient(135deg,#8496bc 0 50%,transparent 50%) left/50px 56px no-repeat,linear-gradient(225deg,#8496bc 0 50%,transparent 50%) right/50px 56px no-repeat}
+#gen .gc{position:absolute;left:14px;bottom:4px;width:12px;height:18px;border-radius:4px;background:#f2a33a;box-shadow:0 0 0 2px #2a1600 inset;animation:gclimb 1.4s ease-in-out infinite}
+@keyframes gclimb{0%{transform:translate(0,0)}25%{transform:translate(22px,-24px)}50%{transform:translate(42px,-46px)}75%{transform:translate(64px,-24px)}100%{transform:translate(86px,0)}}
+#gen .gt{font-size:20px;font-weight:900;letter-spacing:2px}#gen .gb{width:min(240px,70vw);height:14px;border-radius:7px;background:rgba(255,255,255,.15);overflow:hidden;box-shadow:0 0 0 2px #ffd27a}
+#gen .gb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd27a,#f2a33a);transition:width .15s}#gen .gp{font-size:13px;opacity:.8}
 #rbadge small{font-size:14px;font-weight:800;opacity:.75}
 #rcode{font-size:54px;letter-spacing:12px;font-weight:900;line-height:1;margin-left:12px}
 #slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(340px,92vw)}
@@ -75,6 +81,7 @@ small.cpb{display:block;font-size:12px!important;padding:1px 6px!important;width
 </div>
 <button id="hintb" aria-label="提示">？</button>
 <button id="muteb" aria-label="靜音" style="position:fixed;right:calc(112px + env(safe-area-inset-right));bottom:calc(150px + env(safe-area-inset-bottom));width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.45);color:#fff;font-size:20px;z-index:5;padding:0;min-width:0">🔊</button>
+<div id="gen" class="ov hide" aria-live="polite"><div class="gw"><div class="gm"></div><div class="gc"></div></div><div class="gt">生成山壁中…</div><div class="gb"><i id="genb"></i></div><div class="gp" id="genp">0%</div></div>
 <div id="menu" class="ov art">
  <svg id="logo" viewBox="0 0 300 120" aria-label="攀岩"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#f2a33a"/></linearGradient></defs>
   <path d="M18 104 L78 26 L98 50 L118 30 L170 104z" fill="#8496bc"/><path d="M78 26 L66 42 L74 40 L80 46 L88 38 L98 50 L86 34z" fill="#f4f8ff"/><path d="M118 30 L110 41 L118 39 L126 44z" fill="#f4f8ff"/>
@@ -190,7 +197,16 @@ let rects,foods,camps,eaten,PEAK={x:110,y:0,w:140};
 function fk(v,pb){if(v<pb)return'berry';return(v-pb)/(1-pb)<.2+.35*DIFF?'pois':'mush'}
 // opening terrain variant per level: 0 flat beach, 1 step, 2 lean wall, 3 stair; hashed so neighbours differ
 function opKind(l){const raw=n=>{let h=Math.imul(n^0x5bd1e995,0x27d4eb2d);h^=h>>>15;h=Math.imul(h,0x85ebca6b);h^=h>>>13;return(h>>>0)%4};let p=-1,v=0;for(let i=1;i<=l;i++){v=raw(i);if(v===p)v=(v+1+raw(i+97)%3)%4;p=v}return v}
-function genWorld(lv,sd,tries=0){levelCfg(lv);
+function genWorld(lv,sd,tries=0){const g=genWorldG(lv,sd,tries);while(!g.next().done);}
+function genDone(lv){if(!window.BOT&&NAV&&NAV.path)genSave(lv)}
+// first seed retry known to yield a validated route per level (deterministic, measured offline); a stale entry just falls through to the normal retries
+const GEN_TRY={6:2,7:1,8:2,9:3,17:1,26:1,34:1,37:1,38:2,40:1,44:1,47:2,49:4,50:3};
+let GENV=null;const genKey=lv=>{if(!GENV){const t=genWorldG.toString()+ensurePath.toString()+buildNodes.toString()+simJump.toString()+levelCfg.toString();let h=5381;for(let i=0;i<t.length;i++)h=(h*33^t.charCodeAt(i))>>>0;GENV=h.toString(36)}return 'pk2dgen:'+GENV+':'+lv};
+// finished layouts are cached per level and generator version (generation is deterministic, so this only skips the wait on a repeat visit)
+function genSave(lv){try{const k=genKey(lv);for(let i=localStorage.length-1;i>=0;i--){const n=localStorage.key(i);if(n&&n.startsWith('pk2dgen:')&&!n.startsWith('pk2dgen:'+GENV+':'))localStorage.removeItem(n)}
+ localStorage[k]=JSON.stringify({r:rects,f:foods,c:camps,T:TOP,pk:rects.indexOf(PEAK)})}catch(_){}}
+function genLoad(lv){try{const v=localStorage[genKey(lv)];if(!v)return false;const d=JSON.parse(v);levelCfg(lv);rects=d.r;foods=d.f;camps=d.c;eaten=new Set();TOP=d.T;PEAK=rects[d.pk];navInit();const r=navSearch(nodeAt(rects[0],W/2-6));if(!(r&&r.ok))return false;NAV.path=r.path;return true}catch(_){return false}}
+function* genWorldG(lv,sd,tries=0){if(sd==null&&!tries&&!window.BOT&&!window.NO_GC){yield .05;if(genLoad(lv))return}if(sd==null&&!tries&&GEN_TRY[lv]&&!window.NO_GT){levelCfg(lv);const k=GEN_TRY[lv];yield* genWorldG(lv,LV*7919+104729+977*k,k);return}levelCfg(lv);
  const R=rng(sd!=null?sd:LV*7919+104729);rects=[];foods=[];camps=[];eaten=new Set();
  rects.push({x:-60,y:0,w:W+120,h:400});
  rects.push({x:-60,y:TOP-800,w:60,h:-TOP+1200,side:1},{x:W,y:TOP-800,w:60,h:-TOP+1200,side:1});
@@ -234,18 +250,20 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
  foods=foods.filter(f=>rects.some(r=>!r.side&&f.x>=r.x&&f.x<=r.x+r.w&&Math.abs(f.y+7-r.y)<1));
  {// never two poison mushrooms in a row (by altitude); early levels keep 3 safe items between them
   const gap=DIFF<.3?3:1;let since=99;for(const f of [...foods].sort((a,b)=>b.y-a.y)){if(f.k==='pois'){if(since<gap)f.k='mush';else since=0}else since++}}
- rects.push(peakR);PEAK=peakR;
- ensurePath();
+ rects.push(peakR);PEAK=peakR;yield .12;
+ ensurePath();yield .25;
  // early levels: catch ledges beside the first path ledges so a missed jump doesn't drop all the way to the beach; kept only if the validated route stays intact
  if(DIFF<.35&&(NAV&&NAV.path)){const L0=NAV.path.length;let added=0;for(let i=1;i<Math.min(path.length,7)&&added<4;i++){const r=path[i];if(r.peak||r.camp)continue;for(const sd of[-1,1]){const w=34,x=sd<0?r.x-w-PW-4:r.x+r.w+PW+4,y=r.y+28;if(x<2||x+w>W-2||y>-PH-30)continue;
   if(rects.some(q=>q!==rects[0]&&q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
   rects.push({x,y,w,h:10,ex:1,catch:1});navInit();const res=navSearch(nodeAt(rects[0],W/2-6));if(res.ok&&res.path.length<=L0){NAV.path=res.path;added++}else rects.pop()}}navInit();NAV.path=navSearch(nodeAt(rects[0],W/2-6)).path}
+ yield .3;
  // long-drop catch ledges (all levels): where a path ledge has nothing within ~22m below it, add a small ledge ~9m below beside it; deterministic, kept only if the validated route stays intact
  if((NAV&&NAV.path)){const L0=NAV.path.length;let added=0;const below=(r,x0,x1)=>{let d=1e9;for(const q of rects)if(q!==r&&!q.side&&q.y>r.y+4&&q.x<x1&&q.x+q.w>x0)d=Math.min(d,q.y-r.y);return d};
   for(let i=2;i<path.length-1&&added<8;i++){const r=path[i];if(r.peak||r.camp||r.y>-PH-120)continue;const sides=r.x+r.w/2<W/2?[1,-1]:[-1,1];for(const sd of sides){const w=30,x=sd<0?r.x-w-PW-6:r.x+r.w+PW+6,y=r.y+36,lo=sd<0?x-10:r.x,hi=sd<0?r.x+r.w:x+w+10;if(below(r,lo,hi)<88)break;if(x<2||x+w>W-2)continue;
    if(rects.some(q=>q!==r&&!q.side&&x<q.x+q.w+PW+2&&x+w>q.x-PW-2&&y-PH-24<q.y+q.h&&y+16>q.y))continue;
    rects.push({x,y,w,h:10,ex:1,catch:2});added++;break}}
   if(added){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));if(!(res&&res.ok&&res.path.length<=L0)){/* drop them one at a time from the top until the route is intact */const C=rects.filter(q=>q.catch===2).sort((a,b)=>a.y-b.y);for(const c of C){rects.splice(rects.indexOf(c),1);navInit();res=navSearch(nodeAt(rects[0],W/2-6));if(res&&res.ok&&res.path.length<=L0)break}}navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}
+ yield .35;
  // opening terrain varies by level (step / wall / stair / plain beach); kept only if the validated route stays intact
  const k=opKind(LV),hv=(Math.imul(LV,2654435761)>>>8)&255;if((NAV&&NAV.path)&&k){const p1=path[1]||{x:W/2,w:0},pr=(p1.x+p1.w/2<W/2)!==!!(hv&64),sh=hv&16?6:0;
   // try several spots on both sides of the spawn until one fits without crowding ledges and keeps the route valid
@@ -258,6 +276,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(op.some(o=>o.x<4||o.x+o.w>W-4||rects.some(q=>q!==rects[0]&&!q.side&&o.x<q.x+q.w+PW&&o.x+o.w>q.x-PW&&o.y-PH-4<q.y+q.h&&o.y+o.h>q.y)))continue;
    const n0=rects.length,keep=NAV.path;for(const o of op)rects.push(Object.assign(o,{ex:1,op:1}));navInit();const res=navSearch(nodeAt(rects[0],W/2-6));
    if(res.ok){NAV.path=res.path;done=1;break}rects.length=n0;navInit();NAV.path=keep}}}
+ yield .4;
  // walk-off catch ledges (Round 16): every ledge edge is walked off in simulation (direction held / released at the edge); where the fall
  // would exceed FALLMAX a small ledge is added ~10m below, under the simulated fall line (world edges included); repeated so new ledges are
  // covered too. Each one is checked against the validated route by re-simulating every route jump near it; deterministic; final search guards.
@@ -276,7 +295,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   const routeOK=c=>{for(const[f,e]of RE){if(c.y>f.y+PH+280||c.y+c.h<f.y-120||c.x>e.sx+260||c.x+c.w<e.sx-260)continue;
    const L=rects.filter(r=>r.y<f.y+PH+280&&r.y+r.h>f.y-120);const l=simJump(e.sx,f.y,e.dir,e.rel,L,e.run);if(!l||l.r!==e.to.r)return 0}return 1};
   const RR=new Set([rects[0],...RE.map(([f,e])=>e.to.r)]);const free=(x,y,w)=>!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W)&&y<-260)return false;const g=Math.abs(q.y-y)<14?PW+2:3;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-5<q.y+q.h&&y+(q.catch?10+PH+4:10+PH+8)>q.y&&!(q.catch&&q.y>=y+10&&q.x>=x&&q.x+q.w<=x+w)});/* no cramped pocket under a new ledge unless the ledge fully roofs it */
-  for(let pass=0;pass<5;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+  for(let pass=0;pass<5;pass++){yield .42+pass*.05;let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
    for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;/* edge against the world wall: nothing to walk off */
     const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;const fh=simFall(sx,sy,sd,1,FALLMAX),fr=simFall(sx,sy,sd,0,FALLMAX);if(fh.d<=FALLMAX&&fr.d<=FALLMAX)continue;
     let ok=0;const xs=[fh.xd,fr.xd].filter(v=>v!=null);if(xs.length)for(const D of[34,28,38,24,44,52,58])for(const sh of[0,10,-10,20])for(const sn of[1,0]){if(ok)break;const x0=Math.max(0,Math.min(...xs)-8),x1=Math.min(W,Math.max(...xs)+PW+8),w=Math.max(40,x1-x0)+Math.abs(sh)*0,x2=Math.max(0,Math.min(W-w,(sd>0?x0:x1-w)+sd*sh)),xa=sn&&x2<PW+10?0:x2,wb=(sn&&x2+w>W-PW-10?W:x2+w)-xa,x=xa,y=r.y+D;
@@ -293,7 +312,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
     for(const q of cs){if(done)break;let nx=Math.min(q.x,fx0),nr=Math.max(q.x+q.w,fx1);if(nx<PW+26)nx=0;if(W-nr<PW+26)nr=W;if(nr-nx>q.w+150)continue;const ox=q.x,ow=q.w;
      const clash=rects.some(t=>t!==q&&t!==rects[0]&&(t.side?nx<t.x+t.w&&nr>t.x&&q.y<t.y+t.h&&q.y+q.h>t.y:(nx-PW-2<t.x+t.w&&nr+PW+2>t.x&&((t.y<q.y&&t.y+t.h>q.y-PH-6)||(t.y>=q.y&&t.y<q.y+q.h+PH+6)))&&!(t.x>=ox-1&&t.x+t.w<=ox+ow+1&&t.y===q.y)));
      if(clash||rects.some(t=>t!==q&&!t.side&&t!==rects[0]&&Math.abs(t.y-q.y)<64&&t.y!==q.y&&nx-4<t.x+t.w&&nr+4>t.x&&!(ox-4<t.x+t.w&&ox+ow+4>t.x)))continue;/* don't slide under/over a nearby ledge (keeps the jump arcs) */q.x=nx;q.w=nr-nx;if(routeOK(q)){done=1;add.push(q);q.wid=[ox,ow]}else{q.x=ox;q.w=ow}}}}}
-  if(add.length){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));
+  yield .66;if(add.length){navInit();let res=navSearch(nodeAt(rects[0],W/2-6));
    for(let it=0;it<8&&!(res&&res.ok);it++){/* bisect for the first ledge that breaks the route, drop just that one, repeat */const live=add.filter(c=>rects.includes(c)&&!c.wid);const keep=rects.filter(q=>!live.includes(q));let lo=0,hi=live.length-1;
     const tryN=m=>{rects.length=0;rects.push(...keep,...live.slice(0,m));navInit();const r=navSearch(nodeAt(rects[0],W/2-6));return r&&r.ok};
     while(lo<hi){const m=(lo+hi)>>1;if(tryN(m+1))lo=m+1;else hi=m}rects.length=0;rects.push(...keep,...live.filter((c,i)=>i!==lo));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
@@ -303,7 +322,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
   {const A2=[];
   {/* Round 19: half-step fill. Any edge whose walk-off still drops >8.5m gets a small step 5-9m below under the fall line (both directions checked); denser steps between rows, deterministic, route-checked */
    const FM=34,clear=(x,y,w)=>x>=0&&x+w<=W&&!rects.some(q=>{if(q.side&&(q.x+q.w<=0||q.x>=W))return false;const g=Math.abs(q.y-y)<20?PW+2:2;return x-g<q.x+q.w&&x+w+g>q.x&&y-PH-3<q.y+q.h&&y+10+PH+3>q.y});
-   for(let pass=0;pass<4;pass++){let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
+   for(let pass=0;pass<4;pass++){yield .72+pass*.04;let n=0;const src=rects.filter(q=>!q.side&&!q.peak&&q!==rects[0]&&q.y<-PH-40);src.sort((a,b)=>b.y-a.y);
     for(const r of src)for(const sd of[-1,1]){const e=sd<0?r.x:r.x+r.w;if(sd<0?e<PW:e>W-PW)continue;const sx=sd<0?e-PW:e,sy=r.y-PH;if(hit(sx-sd*2,sy-.5,PW,PH-1))continue;
      const f0=[simFall(sx,sy,sd,1,FM),simFall(sx,sy,sd,0,FM),simFall(sx,sy,sd,0,FM,.5),simFall(sx,sy,sd,1,FM,.5),simFall(sx,sy,sd,0,FM,.2)];if(f0.every(f=>f.d<=FM))continue;let ok=0;{/* narrow slot next to a ledge at about the same height: bridge it instead */const nb=rects.find(q=>q!==r&&!q.side&&!q.peak&&Math.abs(q.y-r.y)<=8&&q.h<=14&&(sd>0?q.x-e:e-(q.x+q.w))>0&&(sd>0?q.x-e:e-(q.x+q.w))<PW+18);
       if(nb&&!r.camp){const ox=r.x,ow=r.w;if(sd>0)r.w=nb.x-r.x;else{r.w=r.x+r.w-(nb.x+nb.w);r.x=nb.x+nb.w}if(routeOK(r)){A2.push(r);r.wid=r.wid||Object.assign([ox,ow],{r19:1});n++;continue}r.x=ox;r.w=ow}
@@ -321,6 +340,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
     if(!(res&&res.ok)){for(const q of A2)if(q.wid&&q.wid.r19){q.x=q.wid[0];q.w=q.wid[1]}rects.splice(0,rects.length,...rects.filter(q=>!A2.includes(q)||q.wid));navInit();res=navSearch(nodeAt(rects[0],W/2-6))}
     if(res&&res.ok)NAV.path=res.path}}
   }
+ yield .9;
  if(NAV&&NAV.path){/* Round 19 fix: no ledge may end right beside another at body height (a lip you can neither walk off nor step onto); trim or drop the extra ledge */
   const snap=rects.map(q=>[q,q.x,q.w]),rm=[];let ch=0;
   for(let it=0;it<3;it++)for(const a of rects)for(const b of rects){if(a===b||a.side||b.side||a===rects[0]||b===rects[0]||rm.includes(a)||rm.includes(b))continue;const dy=a.y-b.y;if(Math.abs(dy)<.6||Math.abs(dy)>PH+12)continue;
@@ -330,7 +350,7 @@ function genWorld(lv,sd,tries=0){levelCfg(lv);
    if(v.x>=o.x){const nx=o.x+o.w+need;v.w=v.x+v.w-nx;v.x=nx}else{v.w=o.x-need-v.x}
    if(v.w<24){rm.push(v)}ch=1}
   if(ch){for(const v of rm)rects.splice(rects.indexOf(v),1);navInit();const res=navSearch(nodeAt(rects[0],W/2-6));if(res&&res.ok)NAV.path=res.path;else{rects.length=0;for(const[q,x,w]of snap){q.x=x;q.w=w;rects.push(q)}navInit();NAV.path=(navSearch(nodeAt(rects[0],W/2-6))||{}).path||null}}}
- if(!(NAV&&NAV.path)&&tries<6)genWorld(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
+ if(!(NAV&&NAV.path)&&tries<6)yield* genWorldG(lv,(sd!=null?sd:LV*7919+104729)+977,tries+1);
 }
 // ---------- navigation: reachability validator (mirrors player physics with safety margin) ----------
 const JV=390,AIRV=88,JCAP=110,NAV_DT=1/60;let NAV_JV=JV*.9,NAV_AS=AIRV*.85;// 90% jump speed = 81% jump height, 85% air speed
@@ -443,14 +463,21 @@ function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=`（�
   if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
   const cq=ok&&cpMeta(i);const sr=b[i]?stars(i,b[i]):0;
   e.innerHTML=ok?i+(b[i]?`<small class="st">${'★'.repeat(sr)}${'☆'.repeat(3-sr)}</small><small>${fmt(b[i]).replace('分',':').replace('秒','')}</small>`:'')+(cq?`<small class="cpb">🔥${Math.max(0,-(cq.y+PH)/4)|0}m</small>`:b[i]?'':'<small>新！</small>'):`${i}<small>🔒</small>`;
-  e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;startGame(i)};
-  if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:-6px;top:-8px;font-size:17px;line-height:26px;width:26px;height:26px;text-align:center;background:#c0392b;color:#fff;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 3px rgba(0,0,0,.4)';z.onclick=ev=>{ev.stopPropagation();if(!confirm(`第${i}關：清除營火存檔，從頭開始？`))return;const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;startGame(i)};e.appendChild(z)}
+  e.onclick=()=>{$('lvs').classList.add('hide');getNick();net=false;loadGame(i)};
+  if(cq){const z=document.createElement('span');z.className='lvfresh';z.textContent='↺';z.title='從頭開始';z.style.cssText='position:absolute;right:-6px;top:-8px;font-size:17px;line-height:26px;width:26px;height:26px;text-align:center;background:#c0392b;color:#fff;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 3px rgba(0,0,0,.4)';z.onclick=ev=>{ev.stopPropagation();if(!confirm(`第${i}關：清除營火存檔，從頭開始？`))return;const o=cps();delete o[i];setCps(o);$('lvs').classList.add('hide');getNick();net=false;loadGame(i)};e.appendChild(z)}
   $('lvgrid').appendChild(e)}
  const sl=$('rlv');if(sl){const v=+sl.value||n;sl.innerHTML='';for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=i;o.textContent='第'+i+'關';sl.appendChild(o)}sl.value=Math.min(v,n);rlvShow()}}
 function rlvShow(){const sl=$('rlv'),t=$('rlvT');if(!sl||!t)return;const v=+sl.value||1,z=lvChapter(v).z;t.textContent=`第${v}關`;$('rlvB').style.borderColor=BIOMES[z].edge;$('rlvB').querySelector('small').textContent=`${['🏖️','🌴','🏔️','🌋'][z]} ${BIOMES[z].n}篇`}
 function rlvStep(d){const sl=$('rlv'),n=sl.options.length;sl.value=Math.max(1,Math.min(n,(+sl.value||1)+d));rlvShow()}
+let PREGEN=null,GENBUSY=0;
+// loading screen: the level generator yields between passes; we step it in ~25ms slices so the bar and the climber animate
+function loadGame(s,after){if(window.BOT||!$('gen')){startGame(s);after&&after();return}if(mode==='play')mode='load';const id=++GENBUSY,ov=$('gen'),bar=$('genb'),pt=$('genp');ov.classList.remove('hide');bar.style.width='0%';pt.textContent='0%';let p=0,g=null;
+ const step=()=>{if(id!==GENBUSY)return;if(!g)g=genWorldG(s);const te=performance.now();let r;do{r=g.next();if(!r.done)p=Math.max(p,r.value)}while(!r.done&&performance.now()-te<25);
+  const pc=r.done?100:Math.round(p*100);bar.style.width=pc+'%';pt.textContent=pc+'%';if(!r.done){setTimeout(step,0);return}
+  setTimeout(()=>{if(id!==GENBUSY)return;GENBUSY=0;genDone(s);PREGEN=s;startGame(s);ov.classList.add('hide');after&&after()},60)};
+ requestAnimationFrame(()=>setTimeout(step,30))}
 function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){const g=prog();g.l=s;try{localStorage[SK+'prog']=JSON.stringify(g)}catch(_){}}
- seed=s;genWorld(seed);P=newPlayer();toastQ=[];lavaFloor=0;checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
+ seed=s;if(PREGEN===s&&LV===s)PREGEN=null;else{PREGEN=null;genWorld(seed)}P=newPlayer();toastQ=[];lavaFloor=0;checkpoint={x:P.x,y:P.y};lava=1e9;lavaOn=false;parts=[];
  t0=performance.now();elapsed=0;camY=P.y-200;mode='play';auMusic(true);
  if(net){const L=lobbyList.length?lobbyList:Object.entries(lobby).map(([id,v])=>({id,...v})),SL=[0,-72,72,-144],x0=P.x;
   L.forEach((p,i)=>{let x=x0+SL[i%4];const okx=x=>x>=4&&x+PW<=W-4&&!hit(x,P.y,PW,PH)&&hit(x,P.y+PH+1,PW,2)&&!L.some((q,k)=>k<i&&Math.abs((q.id===myId?P.x:(remotes[q.id]||{}).x)-x)<50);if(i&&!okx(x))x=[60,-60,96,-96,130,-130,36,-36].map(d=>x0+d).find(okx)??x;if(p.id===myId){P.x=x;checkpoint.x=x}else remotes[p.id]=Object.assign(remotes[p.id]||{},{x,y:P.y,dx:x,dy:P.y,f:1,c:0,d:0,a:0,n:p.n,g:p.g,ci:p.ci})});
@@ -813,7 +840,8 @@ function findSpawn(h,oth=[]){
  if(h.c){for(const dy of[0,-PH-2,PH+2]){const y=h.y+dy,x=h.x;if(ok(x,y)&&hit(h.c<0?x-2:x+PW,y+2,2,PH-4))return{x,y,c:h.c}}}
  for(let r=1;r<12;r++)for(const s of[-1,1])for(const dy of[0,-r*12,r*12]){const x=h.x+s*r*10,y=h.y+dy;if(ok(x,y)){const g=ground(x,y);if(g!=null)return{x,y:g,c:0}}}
  return{x:h.x,y:h.y,c:0}}
-function applySnap(d){remotes={};startGame(d.seed);
+function applySnap(d){remotes={};loadGame(d.seed,()=>applySnapB(d))}
+function applySnapB(d){
  for(const id of d.eaten)eaten.add(id);lava=d.lava;lavaOn=!!d.lo;t0=performance.now()-d.el*1000;elapsed=d.el;
  checkpoint=d.cp;P.camp=d.camp;
  for(const id in d.ps){if(id===myId)continue;const v=d.ps[id];remotes[id]=Object.assign({dx:v.x,dy:v.y},v)}
@@ -838,7 +866,7 @@ function join(code,auto){
 function clientHandle(d){
  if(d.t==='lobby'){if(!serverRoster)showLobby(d.pl)}
  else if(d.t==='full'){net=false;leave(true);st('房間已滿或已開始')}
- else if(d.t==='start')startGame(d.seed);
+ else if(d.t==='start')loadGame(d.seed);
  else if(d.t==='snap')applySnap(d);
  else if(d.t==='pjoin')toast(`${d.n} 加入了遊戲`);
  else if(d.t==='ps'){if(mode!=='play')return;lava=(P&&P.invT>0&&lavaFloor)?Math.max(d.lava,lavaFloor):d.lava;if(d.lo)lavaOn=true;
@@ -852,16 +880,16 @@ function openRoom(){mode='room';$('menu').classList.add('hide');$('end').classLi
  $('bStart').classList.toggle('hide',!isHost);$('rlvw').classList.toggle('hide',!isHost);renderLv();$('wait').classList.toggle('hide',isHost);st('');renderPickers()}
 function leave(keepStatus){connGen++;auMusic(false);clearTimeout(joinTimer);const w=ws;ws=null;try{if(w){if(w.readyState===1)w.send(JSON.stringify({t:'leave'}));w.close()}}catch(_){}net=false;isHost=false;conns={};lobby={};lobbyList=[];remotes={};hostConn=null;mode='menu';P=null;
  ['room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.add('hide');$('menu').classList.remove('hide');if(keepStatus!==true)st('');renderPickers()}
-function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});startGame(s);setTimeout(()=>{if(net&&isHost&&(mode!=='play'||!P||!rects.length||LV!==s)&&mode!=='end'){console.warn('host start watchdog');startGame(s)}},1500)}
+function hostStart(lv){const s=Math.max(1,Math.min(NLV,lv||+$('rlv').value||nextLv()));wsend({t:'started'});for(const id in conns)conns[id].send({t:'start',seed:s});loadGame(s);setTimeout(()=>{if(net&&isHost&&!GENBUSY&&(mode!=='play'||!P||!rects.length||LV!==s)&&mode!=='end'){console.warn('host start watchdog');startGame(s)}},1500)}
 
 // ---------- menu wiring ----------
 try{if(localStorage.nick)$('nick').value=localStorage.nick}catch(_){}
 renderPickers();
 const qp=new URLSearchParams(location.search).get('room');if(qp){$('code').value=qp.replace(/\D/g,'').slice(0,4);st('已帶入房間代碼，輸入暱稱後按「加入房間」')}
-$('bSolo').onclick=()=>{getNick();net=false;startGame(contLv())};
+$('bSolo').onclick=()=>{getNick();net=false;loadGame(contLv())};
 $('bLvs').onclick=()=>{renderLv();$('menu').classList.add('hide');$('lvs').classList.remove('hide')};
 $('bLvBack').onclick=()=>{$('lvs').classList.add('hide');$('menu').classList.remove('hide')};
-$('bNext').onclick=()=>{const n=Math.min(NLV,LV+1);if(net&&isHost)hostStart(n);else if(!net)startGame(n)};
+$('bNext').onclick=()=>{const n=Math.min(NLV,LV+1);if(net&&isHost)hostStart(n);else if(!net)loadGame(n)};
 renderLv();
 $('bHost').onclick=host;
 $('code').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)};
@@ -876,7 +904,7 @@ $('rlvM').onclick=()=>rlvStep(-1);$('rlvP').onclick=()=>rlvStep(1);
 $('rbadge').onclick=async()=>{try{await navigator.clipboard.writeText(roomCode);st('已複製邀請碼 '+roomCode)}catch(_){prompt('邀請碼',roomCode)}const r=$('rbadge');r.style.transform='scale(.95)';setTimeout(()=>r.style.transform='',150)};
 $('bCopy').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;
  try{await navigator.clipboard.writeText(u);st('已複製：'+u)}catch(_){prompt('複製此連結',u)}};
-$('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)startGame(LV)};
+$('bAgain').onclick=()=>{if(net&&isHost)hostStart(LV);else if(!net)loadGame(LV)};
 $('bMenu').onclick=()=>leave();
 // ---------- debug (?debug=1): all levels unlocked + panel + keys ----------
 function dbgPlats(){return NAV.nodes.filter(n=>!n.r.side&&Math.min(n.b,W-PW-6)-Math.max(n.a,6)>=0).sort((a,b)=>b.y-a.y||a.a-b.a)}
@@ -890,7 +918,7 @@ if(DEBUG){renderLv();const d=document.createElement('div');d.id='dbg';d.style.cs
  // keyboard never activates debug controls (Space after a click used to re-press 跳關/傳送); keys still reach the game
  addEventListener('keydown',e=>{const t=e.target;if(t&&t.closest&&t.closest('#dbg')&&t.tagName!=='INPUT'){t.blur();if(e.key===' '||e.key==='Enter')e.preventDefault()}},true);d.addEventListener('change',e=>{if(e.target.type==='checkbox')e.target.blur()});
  {const col=c=>{$('dBody').style.display=c?'none':'contents';d.style.background=c?'rgba(0,0,0,.4)':'rgba(0,0,0,.75)'};let cz=innerWidth<520;if(cz){d.style.maxWidth=(innerWidth<300||innerHeight<520)?'165px':'230px';d.style.maxHeight='34vh';d.style.overflowY='auto';d.style.fontSize='11px';$('dHelp').style.display='none'}col(cz);$('dCol').onclick=()=>col(cz=!cz)}
- const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();startGame(lv)}};
+ const go=lv=>{lv=Math.max(1,Math.min(NLV,lv|0));$('dLv').value=lv;if(net&&isHost)hostStart(lv);else if(!net){getNick();loadGame(lv)}};
  cv.tabIndex=-1;const unf=()=>{const a=document.activeElement;if(a&&a!==document.body&&a.blur)a.blur();try{cv.focus({preventScroll:true})}catch(_){}};/* give keys back to the game */
  $('dGo').onclick=()=>{go(+$('dLv').value);unf()};$('dTp').onclick=()=>{dbgTeleport(+$('dM').value);unf()};d.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'&&e.key==='Enter'){e.preventDefault();const b={dLv:'dGo',dM:'dTp',dP:'dPg'}[e.target.id];if(b)$(b).onclick();unf()}});$('dZ').onclick=()=>dbgZone(biomeAt(P?P.y:0)+1);
  $('dPg').onclick=()=>{dbgTeleport(0,0,+$('dP').value|0);unf()};setInterval(()=>{const j=$('dJ');if(!j)return;const L=P&&NAV?dbgPlats().length:0;const pl=P&&NAV?dbgPlats():[],pn=r=>{const i=r?pl.findIndex(n=>n.r===r):-1;return i<0?'-':i};j.textContent=(JLOG?`起跳平台 #${pn(JLOG.r0)}　最遠水平距離 ${Math.round(JLOG.mx)}px　峰值高度 ${Math.round(JLOG.pk)}px (${(JLOG.pk/4).toFixed(1)}m)\n跳：起 x${JLOG.x0|0} → 落 x${JLOG.x1==null?'…':JLOG.x1|0}　水平 ${JLOG.x1==null?'…':Math.round(JLOG.x1-JLOG.x0)}px　${JLOG.x1==null?'空中':JLOG.np?'✔ 新平台 #'+pn(JLOG.r1):'✘ 同一平台/未登上'}`:'跳：尚無紀錄')+`　平台 #${dbgPI<0?'-':dbgPI}/${Math.max(0,L-1)}`},120);$('dInf').onchange=e=>{DBG_INF=e.target.checked};setInterval(()=>{const pl=mode==='play';d.style.top=pl?(innerWidth<300||innerHeight<520?'42%':'calc(118px + env(safe-area-inset-top))'):'auto';d.style.bottom=pl?'auto':'calc(8px + env(safe-area-inset-bottom))'},300);
