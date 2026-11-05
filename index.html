@@ -368,7 +368,7 @@ function saveClear(lv,t){const g=prog();g.c=Math.max(g.c||0,lv);g.b=g.b||{};if(!
 function lvChapter(i){const C=[[1,12,0],[13,25,1],[26,38,2],[39,50,3]];const c=C.find(c=>i<=c[1]);return{a:c[0],b:c[1],z:c[2]}}
 function stars(i,t){const par=45+2.2*i;return t<=par*1.4?3:t<=par*2.2?2:1}
 function contLv(){const l=prog().l;return l>=1&&l<=nextLv()?l:nextLv()}
-function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=(genKey(n),C0.v===GENV)&&C0.hm!=null?`（營火 ${C0.hm} m）`:'（營火）';$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
+function renderLv(){const n=contLv();let cm='';const C0=cpMeta(n);if(C0)cm=(genKey(n),C0.v===GENV)?`（營火 ${C0.hm!=null?C0.hm:Math.max(0,-(C0.y+PH)/4)|0} m）`:'（營火）';$('bSolo').textContent=`繼續 · 第${n}關${cm}`;const g=prog(),b=g.b||{};
  $('lvgrid').innerHTML='';for(let i=1;i<=NLV;i++){const ch=lvChapter(i);if(i===ch.a){const h=document.createElement('div');h.className='zh';h.style.background=`linear-gradient(90deg,${BIOMES[ch.z].rock},${BIOMES[ch.z].edge}aa)`;h.textContent=`${['🏖️','🌴','🏔️','🌋'][ch.z]} ${BIOMES[ch.z].n}篇 · 第${ch.a}–${ch.b}關`;$('lvgrid').appendChild(h)}
   const e=document.createElement('button');const ok=i<=nextLv();e.disabled=!ok;e.className='lvb'+(ok?'':' lock');
   if(ok)e.style.background=`linear-gradient(${BIOMES[ch.z].edge},${BIOMES[ch.z].rock})`,e.style.color=ch.z===3?'#fff':'#1d1408';
