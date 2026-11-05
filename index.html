@@ -312,7 +312,7 @@ const PW=12,PH=18;
 let bannerZ=0,bannerT=0;let lavaTo=0;let P,mode='menu',seed=1,t0=0,elapsed=0,lava=1e9,lavaOn=false,checkpoint,parts=[],toastT=0,shake=0,camY=0,winner='';
 function newPlayer(){return{x:W/2-6,y:-PH-1,vx:0,vy:0,ground:false,cling:0,stam:100,inj:0,hun:0,cold:0,down:false,downT:0,face:1,camp:-1}}
 const maxS=p=>Math.max(8,100-p.inj-p.hun*(.5+.5*DIFF)-p.cold);
-let toastQ=[],toastTag='';function toast(s,tag){const el=$('toast');if(!el)return;if(tag){toastQ=toastQ.filter(q=>q.tag!==tag);if(toastTag===tag&&toastT>0){el.textContent=s;toastT=1.2;return}if(toastT>0&&toastTag===''&&bannerT<=0){toastQ.unshift({s:el.textContent,tag:''})}if(bannerT<=0){el.textContent=s;toastTag=tag;toastT=1.2;return}toastQ.unshift({s,tag});return}if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.some(q=>q.s===s)){toastQ.push({s,tag:''});if(toastQ.length>3)toastQ.shift()}if(!toastTag)toastT=Math.min(toastT,.9);return}el.textContent=s;toastTag='';toastT=2.5;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')}
+let toastQ=[],toastTag='';function toast(s,tag){const el=$('toast');if(!el)return;if(tag){toastQ=toastQ.filter(q=>q.tag!==tag);if(toastTag===tag&&toastT>0){el.textContent=s;toastT=1.2;return}if(toastT>0&&toastTag===''&&bannerT<=0){toastQ.unshift({s:el.textContent,tag:''})}if(bannerT<=0){el.textContent=s;toastTag=tag;toastT=1.2;return}toastQ.unshift({s,tag});return}if((toastT>0||bannerT>0)&&el.textContent&&el.textContent!==s){if(!toastQ.some(q=>q.s===s)){toastQ.push({s,tag:''});if(toastQ.length>3){const k=toastQ.findIndex(q=>!q.tag);toastQ.splice(k<0?0:k,1)}}if(!toastTag)toastT=Math.min(toastT,.9);return}el.textContent=s;toastTag='';toastT=2.5;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')}
 function toastTick(dt){const el=$('toast');if(bannerT>0){el.style.visibility='hidden';return}el.style.visibility='';const nx=()=>{const q=toastQ.shift();el.textContent=q.s;toastTag=q.tag;toastT=q.tag?1.2:toastQ.length?1.3:2.2;el.classList.remove('tin');void el.offsetWidth;el.classList.add('tin')};if(toastT>0&&(toastT-=dt)<=0){el.textContent='';toastTag='';if(toastQ.length)nx()}else if(!el.textContent&&toastQ.length)nx()}
 let flashes=[],floats=[],hurt=null,winPend=null;function flash(x,y,c){flashes.push({x,y,c,t:.45})}
 function floatTxt(x,y,txt,c){floats.push({x,y,txt,c,t:1.1})}
@@ -468,7 +468,7 @@ function update(dt){try{auSteps(dt)}catch(_){}
  // food
  if(P.tpG>0)P.tpG-=dt;else for(const f of foods)if(!eaten.has(f.id)&&Math.abs(f.x-(P.x+6))<14&&Math.abs(f.y-(P.y+9))<16){eat(f.id,true)}
  // lava
- if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+(DIFF>.6?250:300);lavaTo=1;toast('熔岩開始上漲！快爬！')}if(lavaOn&&!lavaTo&&toastT<=0&&mode==='play'){/* lava already rising when we got here (teleport / join / continue): say so once */lavaTo=1;toast(`熔岩正在上漲！在你下方 ${Math.max(0,(lava-(P.y+PH))/4)|0} m`)}
+ if(b===3&&!lavaOn){lavaOn=true;if(!net||isHost)lava=-3*BL+(DIFF>.6?250:300);lavaTo=1;toast('熔岩開始上漲！快爬！','lava')}if(lavaOn&&!lavaTo&&mode==='play'){/* lava already rising when we got here (teleport / join / continue): say so once (tagged: shown immediately, never dropped by the queue cap) */lavaTo=1;toast(`熔岩正在上漲！在你下方 ${Math.max(0,(lava-(P.y+PH))/4)|0} m`,'lava')}
  if(lavaOn&&(!net||isHost)){/* R21 tension: faster on mid/high levels, and in solo it catches up when far below (never closer than ~45m by catch-up alone) */
   const g=lava-(P.y+PH);lavaV=2.2+DIFF*3+(DIFF>.6?(DIFF-.6)*8:0)+(!net&&!P.down&&g>400?Math.min(5,(g-400)*.02):0);lava-=dt*lavaV}
  if(P.invT>0)P.invT-=dt;
