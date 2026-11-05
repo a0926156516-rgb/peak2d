@@ -390,13 +390,18 @@ function startGame(s){winPend=null;floats=[];hurt=null;if(!net&&!window.BOT){con
   for(const id in remotes)if(!L.some(p=>p.id===id))delete remotes[id];setTimeout(netTick,0)}
  ['menu','room','end'].forEach(i=>$(i).classList.add('hide'));$('ctl').classList.remove('hide');
  hint=null;mileT=0;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);progT=0;nameT0=performance.now()/1000;bannerZ=0;bannerT=0;toast(`第${LV}關 · 從海灘出發！目標：山頂`);
- const sv=!net&&!window.BOT&&cps()[LV];if(sv&&Array.isArray(sv.e))for(const id of sv.e)eaten.add(id);
- const cp=!net&&!window.BOT&&loadCP(s);if(cp){Object.assign(P,{x:cp.x,y:cp.y});P.camp=cp.camp;checkpoint={x:cp.x,y:cp.y};t0-=cp.el*1000;elapsed=cp.el;camY=P.y-200;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);toast(`第${LV}關 · 從營火繼續（${Math.max(0,-(cp.y+PH)/4)|0} m）`)}
+ const sv=!net&&!window.BOT&&cps()[LV];if(sv&&(genKey(LV),!sv.v||sv.v===GENV)&&Array.isArray(sv.e))for(const id of sv.e)eaten.add(id);
+ const cp=!net&&!window.BOT&&loadCP(s);if(cp){Object.assign(P,{x:cp.x,y:cp.y});P.camp=cp.camp;checkpoint={x:cp.x,y:cp.y};t0-=cp.el*1000;elapsed=cp.el;camY=P.y-200;bestY=P.y;mile=Math.floor(-(P.y+PH)/200);if(cp.e&&!cp.e.length)eaten.clear();toast(`第${LV}關 · 從營火繼續（${Math.max(0,-(cp.y+PH)/4)|0} m）`)}
  settle();resize();try{render(0)}catch(e){console.error('first frame',e)}
  if(net)try{netTick()}catch(_){}
 }
-function loadCP(lv){const c=cpMeta(lv);return c&&Number.isFinite(c.y)&&!hit(c.x,c.y,PW,PH)?c:null}
-function saveCP(){if(net||window.BOT)return;const o=cps();o[LV]={lv:LV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
+function loadCP(lv){const c=cpMeta(lv);if(!c||!Number.isFinite(c.y))return null;
+ // the saved campfire must exist in this layout; a save from an older layout (or a moved campfire) maps to the nearest campfire at or below its height
+ const ok=q=>Number.isFinite(q.x)&&!hit(q.x,q.y,PW,PH)&&hit(q.x,q.y+PH+2,PW,2);const at=k=>({x:k.x-6,y:k.y-PH-1});
+ const same=camps.find(k=>k.k===c.camp&&Math.abs(k.x-6-c.x)<2&&Math.abs(k.y-PH-1-c.y)<2);genKey(lv);if(same&&ok(c))return Object.assign({},c,{v:GENV});
+ const L=camps.filter(k=>k.y-PH-1>=c.y-8&&ok(at(k))).sort((a,b)=>a.y-b.y);const k=L[0];if(!k)return null;
+ const m=Object.assign({},c,at(k),{camp:k.k,v:GENV});if(c.v!==GENV)m.e=[];return m}
+function saveCP(){if(net||window.BOT)return;const o=cps();genKey(LV);o[LV]={lv:LV,v:GENV,x:checkpoint.x,y:checkpoint.y,camp:P.camp,el:+elapsed.toFixed(1),e:[...eaten]};setCps(o)}
 function clearCP(lv){const o=cps();if(o[lv]){delete o[lv];setCps(o)}}
 function down(){if(P.down)return;nameT0=performance.now()/1000;P.down=true;P.cling=0;P.downT=2.5;shake=.4;puff(P.x+6,P.y+9,'#fff',14);toastT=0;toast('倒下了…即將在營火重生')}
 // respawn: never into (or just above) lava. Solo/host lower the lava under the campfire; guests ask the host (host-authoritative, synced via 'ps').
